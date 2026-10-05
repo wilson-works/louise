@@ -55,7 +55,7 @@
           <p class="caption-stage" id="stage-name"></p>
           <p class="caption-line" id="caption"></p>
         </div>
-        <p class="desk-offline" id="desk-offline" role="status" hidden></p>
+        <p class="desk-offline" id="desk-offline" role="status"></p>
 
         <form class="slip" id="request-form" novalidate aria-labelledby="request-title">
           <h3 class="slip-title" id="request-title" data-copy="requests.title">Ask me to look something up</h3>
@@ -112,7 +112,7 @@
       <p class="library-status" id="search-status" role="status"></p>
 
       <nav class="indicators" id="indicators-nav" aria-label="Shelf sections" hidden>
-        <ul class="indicators-list" id="indicators"></ul>
+        <ul class="indicators-list" id="indicators" role="list"></ul>
       </nav>
 
       <div class="shelves" id="shelves" aria-busy="true"></div>
@@ -137,7 +137,7 @@
         <div class="page page-right">
           <div class="leaf" id="leaf">
             <h3 class="leaf-name" id="leaf-name"></h3>
-            <div class="md" id="leaf-body" tabindex="0" aria-labelledby="leaf-name"></div>
+            <div class="md" id="leaf-body" tabindex="0" role="region" aria-labelledby="leaf-name"></div>
           </div>
           <p class="folio" id="folio" aria-live="polite"></p>
         </div>
