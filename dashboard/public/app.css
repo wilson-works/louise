@@ -1,6 +1,7 @@
 /* app.css: the look of Louise's dashboard (index.html). A lamplit reading room: walnut panelling, her desk with the
  * scene and a beige CRT strip, a catalogue-card request slip, oak shelves of book spines, and the open book on an
- * oxblood cover. Contract: colours, type, space and motion come from /brand/tokens.css (semantic tokens), never raw hex,
+ * oxblood cover. Her desk also holds the "Ask me what we already have" box, and her slip the "Research my list" bar; a
+ * book opened for a question carries the "Was this the book you needed?" bar on its cover. Contract: colours, type, space and motion come from /brand/tokens.css (semantic tokens), never raw hex,
  * except the spine colours, which map one-to-one to the --lz-spine-* primitives. Works from 320 px to wide screens.
  * prefers-reduced-motion stops every movement (the scenes, flights, page turns, the cursor blink); the pause button does
  * the same for the scene. Focus is a gilt ring on a walnut halo that reads on wood and on paper. */
@@ -147,6 +148,22 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
   font-size: var(--lz-text-sm);
 }
 
+/* Ask me what we already have: the Library's "Ask Louise", at her desk. */
+.ask { display: grid; gap: var(--lz-space-2); }
+.ask-label {
+  font-family: var(--lz-font-title); font-variant: small-caps; letter-spacing: 0.06em; font-size: var(--lz-text-md);
+  color: var(--lz-on-surface-muted);
+}
+.ask input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 0 var(--lz-space-4); border-radius: 10px;
+  background: var(--lz-paper-50); color: var(--lz-on-paper); border: 1px solid var(--lz-paper-line); font-size: var(--lz-text-md);
+}
+.ask input::placeholder { color: var(--lz-on-paper-muted); opacity: 1; }
+.ask input[aria-invalid="true"] { border-color: var(--lz-danger); box-shadow: 0 0 0 1px var(--lz-danger); }
+.ask-status { font-family: var(--lz-font-title); font-size: var(--lz-text-md); color: var(--lz-on-surface); }
+.ask-status:empty { display: none; }
+.ask-status cite { font-style: italic; color: var(--lz-gilt-300); }
+
 /* The request slip: a library catalogue card. */
 .slip {
   position: relative; display: grid; gap: var(--lz-space-3);
@@ -178,6 +195,11 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
 .queue { border-top: 1px solid rgba(110, 86, 66, 0.35); padding-top: var(--lz-space-3); }
 .queue-title { font-size: var(--lz-text-md); color: var(--lz-on-paper); }
 .queue-list { margin: var(--lz-space-1) 0 0; padding-left: 1.4em; color: var(--lz-on-paper); font-size: var(--lz-text-sm); }
+/* Research my list: start (and Stop while a run is going), with the reason beside it when it cannot start. */
+.runbar { display: grid; gap: var(--lz-space-2); border-top: 1px solid rgba(110, 86, 66, 0.35); padding-top: var(--lz-space-3); }
+.runbar-actions { display: flex; flex-wrap: wrap; gap: var(--lz-space-2); }
+.runbar-note { font-size: var(--lz-text-sm); color: var(--lz-on-paper); }
+.runbar-note:empty { display: none; }
 
 /* Buttons */
 .btn {
@@ -195,6 +217,8 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
 .btn-gilt:hover:not(:disabled) { background: var(--lz-gilt-300); }
 .btn-quiet { background: transparent; color: var(--lz-paper-100); border-color: rgba(245, 236, 215, 0.4); }
 .btn-quiet:hover:not(:disabled):not([aria-disabled="true"]) { background: rgba(245, 236, 215, 0.1); }
+.btn-line { background: transparent; color: var(--lz-on-paper); border-color: var(--lz-on-paper); }
+.btn-line:hover { background: rgba(42, 29, 20, 0.08); }
 
 /* ------------------------------------------------------------------ the Library */
 .library { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lz-space-4); scroll-margin-top: var(--lz-space-4); }
@@ -440,6 +464,16 @@ dialog.book[open] { animation: lz-book-in var(--lz-page-turn) var(--lz-ease-out)
 }
 .book-bar { display: flex; justify-content: space-between; gap: var(--lz-space-3); }
 
+/* Was this the book you needed? On the cover, under the pages, only for a book she brought for a question. */
+.verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lz-space-2) var(--lz-space-4); color: var(--lz-paper-100); }
+.verdict-q { font-family: var(--lz-font-title); font-size: var(--lz-text-lg); }
+.verdict-actions { display: flex; flex-wrap: wrap; gap: var(--lz-space-2); }
+.verdict-said { font-family: var(--lz-font-title); font-style: italic; color: var(--lz-gilt-300); }
+.verdict-said:empty { display: none; }
+.verdict-said:focus { outline: none; }
+.btn-verdict { min-width: 76px; background: rgba(0, 0, 0, 0.18); color: var(--lz-gilt-300); border-color: rgba(232, 194, 122, 0.55); }
+.btn-verdict:hover { background: rgba(0, 0, 0, 0.3); }
+
 /* The page text: rendered markdown. */
 .md { flex: 1; min-height: 0; overflow: auto; padding: 4px var(--lz-space-4) 0 6px; margin: -4px 0 0 -6px; max-width: 72ch; font-size: 17px; line-height: 1.62; color: var(--lz-on-paper); }
 .md:focus-visible { outline-offset: -3px; }
@@ -485,6 +519,8 @@ dialog.book[open] { animation: lz-book-in var(--lz-page-turn) var(--lz-ease-out)
   .library-title { font-size: var(--lz-text-2xl); }
   .arrange-options span { padding: 0 var(--lz-space-3); }
   .search-row .btn { padding: 0 var(--lz-space-4); }
+  .verdict { gap: var(--lz-space-2); }
+  .verdict-q { font-size: var(--lz-text-md); }
   .shelf { --slot: 150px; --book: 136px; margin: 5px; box-shadow: 0 0 0 4px var(--lz-walnut-700), var(--lz-shadow-shelf); }
   .shelf-row { padding-left: var(--lz-space-3); padding-right: var(--lz-space-3); }
   .spine { width: calc(32px + var(--w, 3) * 2px); }

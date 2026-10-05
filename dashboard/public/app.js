@@ -9,6 +9,14 @@
 //   from her cart to the shelves. The request form posts /api/request; her list comes from /api/requests.
 // - The Library: GET /api/library?arrange=&q= draws one shelf per section with an indicator and its count. Typing in
 //   the search box narrows the shelves; "Ask Louise" posts /api/fetch, plays the fetching scene, then opens the book.
+//   Her desk has the same "Ask Louise" box ("Ask me what we already have"), above the fold.
+// - A book opened by a question asks "Was this the book you needed?". Yes or No posts /api/feedback { q, book,
+//   helpful }; on No she opens the next of that fetch's matches and asks again; when none are left she offers to add
+//   the question to her list (/api/request).
+// - Research my list: GET /api/research every 4 s says whether a run is going, how many questions wait and whether
+//   Claude Code is here. "Research my list" posts /api/research; "Stop" (shown while a run is going) posts
+//   /api/research/stop. The start button stays focusable when it cannot be used (aria-disabled) and says why beside
+//   it; starting and stopping are announced politely.
 // - The open book: a modal dialog. It opens on the Summary card page when the book has one (card first), flips with
 //   the buttons, the contents list or the arrow keys, and renders each page with md.js (escaped, then formatted).
 // - Reduced motion (or the pause button) stops the scene motion, the flights and the page turns.
@@ -31,6 +39,7 @@
     books: '{count} books',
     oneBook: '1 book',
     matches: '{count} books match',
+    researchCheck: 'Checking whether I can start…',
     oneMatch: '1 book matches',
     loading: 'Checking the shelves…',
     libraryError: "The Library can't be reached right now. The page will try again.",
@@ -59,7 +68,7 @@
   const state = {
     stage: null, stageKey: '', stageData: null, offline: 0, paused: false, holdUntil: 0, sceneToken: 0,
     arrange: 'topic', q: '', library: null, libToken: 0, highlight: new Set(), runTitles: new Map(),
-    book: null, page: 0, pageToken: 0, opener: null, last: {},
+    book: null, page: 0, pageToken: 0, opener: null, last: {}, asked: null, research: null,
   };
 
   // ---------------------------------------------------------------- copy
@@ -117,6 +126,14 @@
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`${r.status}`);
     return r.json();
+  }
+  // A POST whose refusal (409 with { error, reason }) is an answer, not a failure.
+  async function postAnswer(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+    let data = {};
+    try { data = await r.json(); } catch (e) { data = {}; }
+    if (!r.ok && !(r.status === 409 && data.reason)) throw new Error(`${r.status}`);
+    return Object.assign({ ok: r.ok }, data);
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const still = () => reduced.matches || state.paused;
@@ -241,7 +258,10 @@
     }
   }
 
+  let stageTimer = null;
+  function pollStageNow() { clearTimeout(stageTimer); pollStage(); }
   async function pollStage() {
+    clearTimeout(stageTimer);
     try {
       applyStage(await getJSON('/api/stage'));
       state.offline = 0;
@@ -251,7 +271,7 @@
       if (state.offline >= 2) $('desk-offline').textContent = ui('offline');
       if (!state.stage) applyStage({ stage: 'idle' });
     } finally {
-      setTimeout(pollStage, POLL_MS);
+      stageTimer = setTimeout(pollStage, POLL_MS);
     }
   }
 
@@ -311,6 +331,68 @@
       });
       $('queue-wrap').hidden = !list.children.length;
     } catch (e) { /* the list is a nicety; the form still works */ }
+    loadResearch();
+  }
+
+  // ---------------------------------------------------------------- Research my list
+  const reasonLine = (reason, fallback) => (copy.research && copy.research.reasons && copy.research.reasons[reason]) || fallback || '';
+  let researchTimer = null;
+
+  function renderResearch(st) {
+    state.research = st;
+    const startBtn = $('run-start');
+    const stopBtn = $('run-stop');
+    let note = '';
+    if (!st) note = ui('researchCheck');
+    else if (st.running) note = reasonLine('running');
+    else if (!st.claude) note = reasonLine('no-claude');
+    else if (!st.waiting) note = reasonLine('empty');
+    if (note) startBtn.setAttribute('aria-disabled', 'true'); else startBtn.removeAttribute('aria-disabled');
+    const n = $('run-note');
+    if (n.textContent !== note) n.textContent = note;
+    const showStop = Boolean(st && st.running);
+    if (stopBtn.hidden === showStop) {
+      // The Stop button leaves while it has focus: focus goes back to the start button, never to the top of the page.
+      if (!showStop && document.activeElement === stopBtn) startBtn.focus();
+      stopBtn.hidden = !showStop;
+    }
+  }
+
+  async function loadResearch() {
+    clearTimeout(researchTimer);
+    try { renderResearch(await getJSON('/api/research')); } catch (e) { /* keeps the last answer; her desk says when it is offline */ }
+    researchTimer = setTimeout(loadResearch, 4000);
+  }
+
+  function announceRun(text) {
+    const live = $('run-live');
+    live.textContent = '';
+    setTimeout(() => { live.textContent = text; }, 60); // cleared first, so the same words are read again
+  }
+
+  async function startResearch() {
+    const btn = $('run-start');
+    if (btn.getAttribute('aria-disabled') === 'true') { announceRun($('run-note').textContent); return; }
+    btn.setAttribute('aria-disabled', 'true');
+    try {
+      const r = await postAnswer('/api/research', {});
+      announceRun(r.ok ? pick(copy.research && copy.research.started, {}, 'started') : reasonLine(r.reason, r.error));
+    } catch (e) {
+      announceRun(reasonLine('not-started', (copy.research && copy.research.failed) || ''));
+    }
+    await loadResearch();
+    pollStageNow();
+  }
+
+  async function stopResearch() {
+    try {
+      const r = await postAnswer('/api/research/stop', {});
+      announceRun(r.ok ? ((copy.research && copy.research.stopped) || '') : reasonLine(r.reason, r.error));
+    } catch (e) {
+      announceRun((copy.research && copy.research.failed) || '');
+    }
+    await loadResearch();
+    pollStageNow();
   }
 
   function fieldError(input, errEl, text) {
@@ -500,17 +582,21 @@
   }
 
   // ---------------------------------------------------------------- Ask Louise: she fetches the book
-  async function askLouise(e) {
+  // from: the box she was asked in, { input, status, button } (the Library's search, or the one on her desk).
+  async function askLouise(e, from) {
     e.preventDefault();
-    const q = $('q').value.trim();
-    const status = $('search-status');
-    if (!q) { status.textContent = ui('askNeeded'); $('q').setAttribute('aria-invalid', 'true'); $('q').focus(); return; }
+    const input = from.input;
+    const q = input.value.trim();
+    const status = from.status;
+    if (!q) { status.textContent = ui('askNeeded'); input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    input.removeAttribute('aria-invalid');
     const hold = still() ? 500 : 4400; // the fetching scene's loop ends with her presenting the book at about 4.4 s
     const started = Date.now();
     state.holdUntil = started + hold + 400;
     if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearInterval(flightTimer); }
     // On a phone the search sits far below her desk: bring her into view so you see her go to the shelf.
     const seen = $('scene').getBoundingClientRect();
+    if (status !== $('search-status')) $('search-status').dataset.keep = '';
     if (!still() && (seen.top < 0 || seen.bottom > window.innerHeight)) $('scene').scrollIntoView({ behavior: 'smooth', block: 'center' });
     caption('fetching', {});
     state.stageKey = 'fetching|';
@@ -525,12 +611,13 @@
     if (res.book) {
       const line = pick(copy.library && copy.library.found, { topic: q }, 'found');
       say(status, line, { topic: q });
-      status.dataset.keep = status.textContent;
+      if (status === $('search-status')) status.dataset.keep = status.textContent;
       if (state.library) renderLibrary();
-      openBook(res.book, $('ask'));
+      const order = [res.book, ...matches.filter((id) => id !== res.book)];
+      openBook(res.book, from.button, { q, matches: order, i: 0 });
     } else {
       say(status, pick(copy.library && copy.library.notFound, { topic: q }, 'notFound'), { topic: q });
-      status.dataset.keep = status.textContent;
+      if (status === $('search-status')) status.dataset.keep = status.textContent;
       if (state.library) renderLibrary();
       const first = document.querySelector('.spine.is-match');
       if (first) first.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'center' });
@@ -540,7 +627,9 @@
   // ---------------------------------------------------------------- the open book
   const pageName = (p) => (copy.book && copy.book.pageNames && copy.book.pageNames[p.name]) || p.name || '';
 
-  async function openBook(id, opener) {
+  // asked: { q, matches, i } when she brought this book for a question, so the book asks whether it was the right one.
+  async function openBook(id, opener, asked) {
+    state.asked = asked || null;
     state.opener = opener || document.activeElement;
     state.openerId = state.opener && state.opener.dataset ? state.opener.dataset.id || '' : '';
     let book;
@@ -575,6 +664,7 @@
       li.append(b);
       toc.append(li);
     });
+    showVerdict();
     const card = book.pages.findIndex((p) => p.kind === 'card' || p.name === 'card');
     const dlg = $('book');
     if (!dlg.open) dlg.showModal();
@@ -626,6 +716,71 @@
     if (motion && dir < 0) leaf.animate([{ transform: 'rotateY(-88deg)', opacity: 0.4 }, { transform: 'rotateY(0deg)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
   }
 
+  // ---------------------------------------------------------------- was this the book you needed?
+  function showVerdict(said) {
+    const v = $('verdict');
+    v.hidden = !state.asked;
+    if (!state.asked) return;
+    $('verdict-q').hidden = false;
+    $('verdict-yes').hidden = false;
+    $('verdict-no').hidden = false;
+    $('verdict-add').hidden = true;
+    $('verdict-said').textContent = said || '';
+  }
+
+  function verdictDone() {
+    $('verdict-q').hidden = true;
+    $('verdict-yes').hidden = true;
+    $('verdict-no').hidden = true;
+  }
+
+  async function answer(helpful) {
+    const asked = state.asked;
+    const book = state.book;
+    if (!asked || !book) return;
+    const said = $('verdict-said');
+    try {
+      await postJSON('/api/feedback', { q: asked.q, book: book.id, helpful });
+    } catch (e) {
+      said.textContent = ui('requestFailed');
+      return;
+    }
+    const f = copy.feedback || {};
+    if (helpful) {
+      verdictDone();
+      said.textContent = pick(f.thanks, {}, 'thanks');
+      said.focus();
+      return;
+    }
+    const next = asked.matches[asked.i + 1];
+    if (next) {
+      const line = pick(f.tryAnother, {}, 'tryAnother');
+      said.textContent = line;
+      await openBook(next, state.opener, { q: asked.q, matches: asked.matches, i: asked.i + 1 });
+      if (state.asked) showVerdict(line);
+      return;
+    }
+    verdictDone();
+    $('verdict-add').hidden = false;
+    said.textContent = pick(f.outOfBooks, {}, 'outOfBooks');
+    $('verdict-add').focus();
+  }
+
+  async function addAskedToList() {
+    const asked = state.asked;
+    if (!asked) return;
+    const said = $('verdict-said');
+    try {
+      const r = await postJSON('/api/request', { topic: asked.q });
+      say(said, pick(copy.requests && copy.requests.queued, { n: r.queued }, 'queued'), { n: r.queued });
+      $('verdict-add').hidden = true;
+      said.focus();
+      loadQueue();
+    } catch (e) {
+      said.textContent = ui('requestFailed');
+    }
+  }
+
   function bookKeys(e) {
     if (e.target.closest('input, textarea, select') || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); turnTo(state.page + 1); }
@@ -648,7 +803,14 @@
       loadLibrary();
     }));
     $('q').addEventListener('input', onSearchInput);
-    $('search-form').addEventListener('submit', askLouise);
+    $('search-form').addEventListener('submit', (e) => askLouise(e, { input: $('q'), status: $('search-status'), button: $('ask') }));
+    $('desk-ask-form').addEventListener('submit', (e) => askLouise(e, { input: $('desk-q'), status: $('desk-ask-status'), button: $('desk-ask') }));
+    $('desk-q').addEventListener('input', () => $('desk-q').removeAttribute('aria-invalid'));
+    $('run-start').addEventListener('click', startResearch);
+    $('run-stop').addEventListener('click', stopResearch);
+    $('verdict-yes').addEventListener('click', () => answer(true));
+    $('verdict-no').addEventListener('click', () => answer(false));
+    $('verdict-add').addEventListener('click', addAskedToList);
     const dlg = $('book');
     $('book-close').addEventListener('click', () => dlg.close());
     $('book-prev').addEventListener('click', () => turnTo(state.page - 1));
@@ -657,6 +819,7 @@
     dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('close', () => {
       state.book = null;
+      state.asked = null;
       const again = state.openerId && document.querySelector(`.spine[data-id="${CSS.escape(state.openerId)}"]`);
       const back = state.opener && document.contains(state.opener) ? state.opener : again || $('q');
       back.focus();
@@ -666,6 +829,7 @@
   async function start() {
     wire();
     await loadCopy();
+    renderResearch(null);
     pollStage();
     loadLibrary();
     loadQueue();
