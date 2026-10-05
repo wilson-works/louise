@@ -183,9 +183,11 @@ if (require.main === module) {
       if (!m) { out(`I do not know "${argv[i]}". Use --topic, --run, --step or --note.`); process.exit(2); }
       opts[m[1]] = m[2] != null ? m[2] : argv[i += 1];
     }
+    let names = {};
+    try { names = JSON.parse(fs.readFileSync(path.join(cfg.home, 'brand', 'copy.json'), 'utf8').replace(/^﻿/, '')).stageNames || {}; } catch (_) { /* no copy */ }
     try {
       const s = set(file, stage, opts);
-      out(`Louise is now ${s.stage}${s.topic ? `: ${s.topic}` : ''}${s.step ? ` (step ${s.step.n} of ${s.step.of})` : ''}${s.note ? `. ${s.note}` : ''}`);
+      out(`Stage set: ${s.stage}${names[s.stage] ? ` (${names[s.stage]})` : ''}${s.topic ? `, ${s.topic}` : ''}${s.step ? `, step ${s.step.n} of ${s.step.of}` : ''}${s.note ? `. ${s.note}` : ''}`);
       process.exit(0);
     } catch (e) { out(e.message); process.exit(2); }
   }

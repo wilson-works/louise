@@ -192,8 +192,9 @@ function createServer(opts) {
     const handle = url.pathname.startsWith('/api/') ? api(req, res, url) : Promise.resolve(statics(req, res, url));
     handle.catch((e) => {
       if (res.headersSent) { res.destroy(); return; }
-      if (e && e.status) fail(res, e.status, e.message);
-      else fail(res, 500, `Something went wrong on Louise's side: ${e && e.message}`);
+      if (e && e.status) { fail(res, e.status, e.message); return; }
+      process.stderr.write(`${new Date().toISOString()} ${req.method} ${url.pathname}: ${(e && e.stack) || e}\n`);
+      fail(res, 500, "Something went wrong on my end, and I couldn't do that. Try again in a moment. If it keeps happening, the details are in my log.");
     });
   });
   return server;

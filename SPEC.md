@@ -110,9 +110,9 @@ brings the book, and it opens.
 |---|---|
 | `GET /health` | `{"ok":true}` (no token, ever: the office probes it) |
 | `GET /api/stage` | the stage object above |
-| `GET /api/library?arrange=topic\|run\|month\|status&q=` | `{ "sections": [{ "id", "label", "count" }], "books": [{ "id", "title", "section", "kind": "topic\|council\|run-summary", "status": "finished\|in-progress\|failed\|flagged", "date", "run", "sources", "lines", "pages": n }] }` |
-| `GET /api/book/<id>` | `{ "id", "title", "kind", "status", "date", "run", "pages": [{ "n", "name", "file" }] }` |
-| `GET /api/book/<id>/page/<n>` | `{ "n", "name", "markdown" }`: only a file inside a configured library root, at most 512 KB |
+| `GET /api/library?arrange=topic\|run\|month\|status&q=` | `{ "sections": [{ "id", "label", "count" }], "books": [{ "id", "title", "section", "kind": "topic\|council\|run-summary", "status": "finished\|in-progress\|failed\|flagged", "date", "run", "sources", "lines", "pages": n }], "examples": true\|false }` (`examples`: the shelves hold only the invented examples) |
+| `GET /api/book/<id>` | `{ "id", "title", "kind", "status", "date", "run", "pages": [{ "n", "name", "kind", "file" }] }` (page `kind`: `brief`, `report`, `sources`, `card`, `council`, `validation`, `transcript`, `run-summary`, `note`; `name` comes from `brand/copy.json` `book.pageNames`) |
+| `GET /api/book/<id>/page/<n>` | `{ "n", "name", "kind", "markdown" }`: only a file inside a configured library root, at most 512 KB |
 | `POST /api/fetch` `{ "q" }` | `{ "book": "<id>" or null, "matches": [ids] }`, and the stage goes to `fetching` |
 | `POST /api/request` `{ "topic", "framing" }` | appended to `requests/queue.md` in marathon-research's queue format; `{ "queued": n }` |
 | `GET /api/requests` | `{ "requests": [{ "topic", "framing", "at" }] }` |
@@ -131,6 +131,24 @@ only inside the configured library roots, and writes only `state/` and `requests
 With no config, the root is `<Hub>/50-AI/research` (found through the Hub's `.hub/hub.json`, walking up from her own
 folder), else `examples/library/` so a fresh install has something on the shelves. Her runbook writes new research to
 the first root.
+
+## The library on disk
+
+Each root is read one level deep where the layout says so, never further, and links are never followed:
+
+| Path in a root | What it is | Becomes |
+|---|---|---|
+| `<YYYY-MM-DD>-<slug>/` | a topic (marathon-research): `00-brief.md`, `NN-*.md`, `sources.md`, `meta.json` | a `topic` book; `finished` when `meta.json` says `complete`, else `in-progress` |
+| `marathons/<YYYY-MM-DD>-<slug>/` | the same, in a research folder laid out the way distill expects | the same |
+| `failed/<YYYY-MM-DD>-<slug>.md` (or a folder) | a topic that failed its scope check | a `topic` book, `failed` |
+| `flagged/<YYYY-MM-DD>-<slug>/` | a topic that failed its citation check, with `_validation-report.md` | a `topic` book, `flagged` |
+| `summaries/<card>.md` | distill's summary card; `_index.md` (at the root) links each card to its topic | a page of its topic; a card with no topic on the shelves is a `topic` book of its own |
+| `council/council-summary-<timestamp>.md` | a council's proceedings (`council-transcript-<timestamp>.md` is its second page) | a `council` book, and a "Reading-room notes" page on every topic it names |
+| `runs/<run>.md` | Louise's run summary book, with front matter `run`, `title`, `date`, `topics: [slugs]`, `council` | a `run-summary` book; its `topics` give each topic its `run` |
+| `marathon-research-state.json` | the run in progress | each wave's topic gets that run; the stage rules read it |
+
+A book's id is `<root number>-<t|f|x|s|c|r>-<folder or file name>`. An id is only ever looked up in the index, never
+turned into a path. The index is cached for 5 seconds, so a new file is on the shelves within seconds.
 
 ## Asking Louise in a session
 
