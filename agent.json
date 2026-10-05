@@ -19,12 +19,12 @@
     "librarian"
   ],
   "brand": {
-    "bg": "#2A2017",
-    "panel": "#4A3826",
-    "ink": "#F6EEDC",
-    "accent": "#B5312B",
-    "accent2": "#D8C9A3",
-    "font": "Georgia, 'Iowan Old Style', serif",
+    "bg": "#1E130C",
+    "panel": "#3A2618",
+    "ink": "#F5ECD7",
+    "accent": "#D9A441",
+    "accent2": "#A9E4F2",
+    "font": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, \"Book Antiqua\", Georgia, serif",
     "mark": "mark.svg"
   },
   "art": "art.svg",
