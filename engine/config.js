@@ -14,6 +14,9 @@
  * When the Hub is found but its research folder is not there yet, the shelves show the examples and new research
  * still goes to <Hub>/50-AI/research (the first run makes it). New research never goes into the examples.
  *
+ * Her phone address: "phone" in louise.config.json (for example "https://desk.example-tailnet.ts.net:8444/"), else
+ * door.phone in her agent.json. Her dashboard answers that host name as well as 127.0.0.1 and localhost.
+ *
  * Her port: "port" in louise.config.json, else probe.port in her agent.json (install-agent rewrites it when 7540 is
  * taken), else 7540.
  *
@@ -140,7 +143,15 @@ function load(opts) {
       `To give her a library, copy louise.config.example.json to ${CONFIG_FILE} and name a folder.`);
   }
 
-  return { home, port, roots, writeRoot, source, hub, phoneHost: phoneHostOf(manifest), file, notes };
+  // Her phone address: "phone" in louise.config.json (this computer's own tailnet address, kept out of agent.json so
+  // it is never committed), else door.phone in agent.json.
+  let phoneHost = phoneHostOf(manifest);
+  if (cfg && cfg.phone != null) {
+    phoneHost = phoneHostOf({ door: { phone: String(cfg.phone).includes('://') ? cfg.phone : `https://${cfg.phone}` } });
+    if (!phoneHost) throw new Error(`"phone" in ${CONFIG_FILE} must be an address, for example https://desk.example-tailnet.ts.net:8444/.`);
+  }
+
+  return { home, port, roots, writeRoot, source, hub, phoneHost, file, notes };
 }
 
 module.exports = { load, findHub, expand, DEFAULT_PORT, CONFIG_FILE, HOME };
