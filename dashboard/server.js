@@ -224,7 +224,7 @@ if (require.main === module) {
     process.stdout.write(`Louise is on http://127.0.0.1:${cfg.port}/ , her library: ${cfg.roots.map((r) => r.path).join(', ')}\n`);
     for (const n of cfg.notes) process.stdout.write(`Note: ${n}\n`);
     let manifestPort = null;
-    try { manifestPort = JSON.parse(fs.readFileSync(path.join(HOME, 'agent.json'), 'utf8').replace(/^﻿/, '')).probe.port; } catch (_) { /* no agent.json */ }
+    try { manifestPort = JSON.parse(fs.readFileSync(path.join(HOME, 'agent.json'), 'utf8').replace(/^\uFEFF/, '')).probe.port; } catch (_) { /* no agent.json */ }
     if (manifestPort && manifestPort !== cfg.port) {
       process.stdout.write(`Note: her office door looks for her on port ${manifestPort} (agent.json), but she is on ${cfg.port} (louise.config.json). Make them the same, or the office shows her door shut.\n`);
     }

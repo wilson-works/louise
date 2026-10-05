@@ -66,7 +66,7 @@ function head(file, max) {
     fd = fs.openSync(file, 'r');
     const buf = Buffer.alloc(max || SMALL_READ);
     const n = fs.readSync(fd, buf, 0, buf.length, 0);
-    return buf.slice(0, n).toString('utf8').replace(/^﻿/, '');
+    return buf.slice(0, n).toString('utf8').replace(/^\uFEFF/, '');
   } catch (_) { return ''; } finally { if (fd !== undefined) fs.closeSync(fd); }
 }
 
@@ -113,7 +113,7 @@ function words(slug) {
 
 /** Words from brand/copy.json (book.pageNames, library.status), so the shelves and the dashboard say the same thing. */
 const COPY = (() => {
-  try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'brand', 'copy.json'), 'utf8').replace(/^﻿/, '')); } catch (_) { return {}; }
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'brand', 'copy.json'), 'utf8').replace(/^\uFEFF/, '')); } catch (_) { return {}; }
 })();
 function fromCopy(defaults, found) {
   const d = Object.assign({}, defaults);
@@ -450,7 +450,7 @@ function readPage(index, id, n) {
   try { st = fs.lstatSync(p.file); } catch (_) { throw httpError(404, 'That page is no longer on the shelf.'); }
   if (!st.isFile() || !inside(b.rootPath, p.file)) throw httpError(403, 'That page is outside the library, so it stays closed.');
   if (st.size > PAGE_CAP) throw httpError(413, `That page is too long to open here (over 512 KB). Its file is ${rel(b, p.file)}.`);
-  const text = fs.readFileSync(p.file, 'utf8').replace(/^﻿/, '');
+  const text = fs.readFileSync(p.file, 'utf8').replace(/^\uFEFF/, '');
   return { n: num, name: p.name, kind: p.kind, markdown: frontMatter(text).body };
 }
 

@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const HOME = path.join(__dirname, '..');
-const readJson = (f) => JSON.parse(fs.readFileSync(path.join(HOME, f), 'utf8').replace(/^﻿/, ''));
+const readJson = (f) => JSON.parse(fs.readFileSync(path.join(HOME, f), 'utf8').replace(/^\uFEFF/, ''));
 const manifest = readJson('agent.json');
 
 test('agent.json says who she is, where her door is and how to start her', () => {

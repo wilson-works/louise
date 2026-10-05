@@ -36,7 +36,7 @@ const HUB_MARKER = path.join('.hub', 'hub.json');
 const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } };
 const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } };
 const portOk = (n) => Number.isInteger(n) && n >= 1024 && n <= 65535;
-const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8').replace(/^﻿/, ''));
+const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, ''));
 
 /** The first folder at or above `from` that holds .hub/hub.json, or null. */
 function findHub(from) {

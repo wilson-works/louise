@@ -37,7 +37,7 @@ const queueFile = (home) => path.join(home, 'requests', 'queue.md');
 const bad = (message) => Object.assign(new Error(message), { status: 400 });
 
 function read(file) {
-  try { return fs.readFileSync(file, 'utf8').replace(/^﻿/, ''); } catch (_) { return ''; }
+  try { return fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''); } catch (_) { return ''; }
 }
 
 /** The requests in a queue file, oldest first. */

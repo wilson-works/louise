@@ -41,7 +41,7 @@ const iso = (ms) => new Date(ms).toISOString();
 const clean = (s) => (s == null ? null : String(s).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, TEXT_MAX) || null);
 
 function readJson(file) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')); } catch (_) { return null; }
+  try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch (_) { return null; }
 }
 
 /** Write a file so a reader never sees half of it: a temporary file, then a rename. */
@@ -184,7 +184,7 @@ if (require.main === module) {
       opts[m[1]] = m[2] != null ? m[2] : argv[i += 1];
     }
     let names = {};
-    try { names = JSON.parse(fs.readFileSync(path.join(cfg.home, 'brand', 'copy.json'), 'utf8').replace(/^﻿/, '')).stageNames || {}; } catch (_) { /* no copy */ }
+    try { names = JSON.parse(fs.readFileSync(path.join(cfg.home, 'brand', 'copy.json'), 'utf8').replace(/^\uFEFF/, '')).stageNames || {}; } catch (_) { /* no copy */ }
     try {
       const s = set(file, stage, opts);
       out(`Stage set: ${s.stage}${names[s.stage] ? ` (${names[s.stage]})` : ''}${s.topic ? `, ${s.topic}` : ''}${s.step ? `, step ${s.step.n} of ${s.step.of}` : ''}${s.note ? `. ${s.note}` : ''}`);
