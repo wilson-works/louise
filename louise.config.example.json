@@ -1,6 +1,7 @@
 {
   "_": "Copy this file to louise.config.json in Louise's folder to choose her library. Without one she uses <Hub>/50-AI/research, or her examples when there is no Hub. New research goes to the first root. A path may start with <Hub> (your Hub folder) or ~ (your home folder). port is her dashboard's port: keep it the same as probe.port in her agent.json, which is where the office looks for her (install-agent may have changed it), or leave it out to use that one.",
   "port": 7540,
+  "_phone": "Optional: \"phone\": \"https://desk.example-tailnet.ts.net:8444/\" is this computer's own address for her door on your phone (for example from tailscale serve). Her dashboard then answers that name too. It stays in this file, never in agent.json.",
   "library": {
     "roots": [
       { "label": "My research", "path": "<Hub>/50-AI/research" }
