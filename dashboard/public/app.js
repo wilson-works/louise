@@ -186,6 +186,7 @@
     $('scene-pause').classList.toggle('is-paused', p);
     document.documentElement.classList.toggle('scene-is-paused', p);
     $('scene-pause-text').textContent = p ? ui('play') : ui('pause');
+    if (p) $('flights').textContent = ''; // SC 2.2.2: a book already in the air stops with the scene
     try { localStorage.setItem('louise.paused', p ? '1' : '0'); } catch (e) { /* private mode: not kept */ }
   }
 
