@@ -9,7 +9,7 @@
 | Tomatoes | 13 °C | [^5] |
 | Beans | 12 °C | [^5] |
 | Squash and courgettes | 15 °C | [^6] |
-| Peppers | 16 °C | [^6] |
+| Aubergines | 16 °C | [^6] |
 
 Readings are taken at 10 cm deep, in the morning, when the soil is at its coolest [^5].
 

@@ -9,7 +9,7 @@ that decides it. An invented example from Louise's demo library.
   two weeks later, is the safer plan. @research/2026-09-14-frost-dates-for-raised-beds/01-overview.md
 - Raised beds 30 to 45 cm deep warmed 7 to 10 days ahead of open ground in the example trial (one trial, sheltered
   gardens). @research/2026-09-14-frost-dates-for-raised-beds/01-overview.md
-- Minimum soil temperatures at 10 cm: tomatoes 13 °C, beans 12 °C, squash 15 °C, peppers 16 °C.
+- Minimum soil temperatures at 10 cm: tomatoes 13 °C, beans 12 °C, squash 15 °C, aubergines 16 °C.
   @research/2026-09-14-frost-dates-for-raised-beds/02-deep-dive.md
 - Fleece adds about 2 °C on a still night; a cold frame 4 to 5 °C. @research/2026-09-14-frost-dates-for-raised-beds/02-deep-dive.md
 
