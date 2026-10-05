@@ -50,6 +50,8 @@
     kind_council: 'Reading-room notes',
     'kind_run-summary': 'Run summary',
     sceneMissing: 'Louise is at her desk.',
+    arranged: '{n} shelves, arranged by {by}.',
+    oneShelf: '1 shelf, arranged by {by}.',
     examples: 'These are example books, invented so the shelves are not empty. Your own research takes their place.',
   };
 
@@ -133,6 +135,11 @@
         if (/^on/i.test(at.name) || (at.localName === 'href' && !at.value.startsWith('#'))) el.removeAttribute(at.name);
       });
     });
+    // Named once, by aria-label from its own <title> (a title that also labels it would be read twice).
+    const title = svg.querySelector(':scope > title');
+    if (title) { svg.setAttribute('aria-label', title.textContent.trim()); title.remove(); }
+    svg.removeAttribute('aria-labelledby');
+    svg.setAttribute('role', 'img');
     svg.setAttribute('focusable', 'false');
     svg.removeAttribute('width');
     svg.removeAttribute('height');
@@ -177,6 +184,7 @@
     state.paused = p;
     $('scene').classList.toggle('is-paused', p);
     $('scene-pause').classList.toggle('is-paused', p);
+    document.documentElement.classList.toggle('scene-is-paused', p);
     $('scene-pause-text').textContent = p ? ui('play') : ui('pause');
     try { localStorage.setItem('louise.paused', p ? '1' : '0'); } catch (e) { /* private mode: not kept */ }
   }
@@ -192,7 +200,14 @@
     const crt = $('crt');
     crt.hidden = false;
     const working = s.stage !== 'idle' && s.topic;
-    $('crt-topic').textContent = working ? `> ${s.topic}` : ui('ready');
+    const ct = $('crt-topic');
+    ct.textContent = '';
+    if (working) {
+      const prompt = document.createElement('span');
+      prompt.setAttribute('aria-hidden', 'true');
+      prompt.textContent = '> ';
+      ct.append(prompt, s.topic);
+    } else ct.textContent = ui('ready');
     const step = s.step && Number(s.step.n) > 0 && Number(s.step.of) > 0 ? s.step : null;
     $('crt-step').textContent = working && step ? fmt(ui('step'), { n: step.n, of: step.of }) : '';
     const dots = $('crt-dots');
@@ -229,10 +244,10 @@
     try {
       applyStage(await getJSON('/api/stage'));
       state.offline = 0;
-      $('desk-offline').hidden = true;
+      $('desk-offline').textContent = '';
     } catch (e) {
       state.offline += 1;
-      if (state.offline >= 2) { $('desk-offline').textContent = ui('offline'); $('desk-offline').hidden = false; }
+      if (state.offline >= 2) $('desk-offline').textContent = ui('offline');
       if (!state.stage) applyStage({ stage: 'idle' });
     } finally {
       setTimeout(pollStage, POLL_MS);
@@ -313,7 +328,8 @@
     if (!topic.value.trim()) { fieldError(topic, $('req-topic-error'), ui('topicNeeded')); topic.focus(); return; }
     fieldError(topic, $('req-topic-error'), '');
     const btn = $('req-submit');
-    btn.disabled = true;
+    if (btn.getAttribute('aria-disabled') === 'true') return;
+    btn.setAttribute('aria-disabled', 'true');
     try {
       const r = await postJSON('/api/request', { topic: topic.value.trim(), framing: framing.value.trim() });
       say(status, pick(copy.requests && copy.requests.queued, { n: r.queued }, 'queued'), { n: r.queued });
@@ -323,11 +339,12 @@
     } catch (err) {
       status.textContent = ui('requestFailed');
     } finally {
-      btn.disabled = false;
+      btn.removeAttribute('aria-disabled');
     }
   }
 
   // ---------------------------------------------------------------- the Library
+  const setStatus = (text) => { const s = $('search-status'); if (s.textContent !== text) s.textContent = text; };
   const plural = (n, one, many) => (n === 1 ? ui(one) : fmt(ui(many), { count: n }));
 
   async function loadLibrary() {
@@ -370,7 +387,9 @@
     let hash = 0;
     for (const ch of String(b.id)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
     btn.style.setProperty('--tone', ((hash % 5) * 0.04).toFixed(2));
-    btn.setAttribute('aria-label', [b.title, statusText(b.status), dateText(b.date)].filter(Boolean).join(', '));
+    const kind = b.kind && b.kind !== 'topic' ? ui(`kind_${b.kind}`) : '';
+    btn.setAttribute('aria-label', [b.title, kind, statusText(b.status), dateText(b.date)].filter(Boolean).join(', '));
+    btn.title = b.title;
     const title = document.createElement('span');
     title.className = 'spine-title';
     title.textContent = b.title;
@@ -393,7 +412,13 @@
     shelves.textContent = '';
     indicators.textContent = '';
     $('library-count').textContent = plural(books.length, 'oneBook', 'books');
-    $('search-status').textContent = $('search-status').dataset.keep || (state.q ? plural(books.length, 'oneMatch', 'matches') : '');
+    let said = $('search-status').dataset.keep || (state.q ? plural(books.length, 'oneMatch', 'matches') : '');
+    if (state.arrangedBy) {
+      const by = state.arrangedBy; state.arrangedBy = '';
+      const n = sections.filter((sec) => books.some((b) => b.section === sec.id)).length;
+      said = fmt(ui(n === 1 ? 'oneShelf' : 'arranged'), { n, by }) + (state.q ? ` ${plural(books.length, 'oneMatch', 'matches')}.` : '');
+    }
+    setStatus(said);
     if (!books.length) {
       const p = document.createElement('p');
       p.className = 'shelves-note';
@@ -420,8 +445,14 @@
       label.textContent = sec.label || sec.id;
       const count = document.createElement('span');
       count.className = 'indicator-count';
-      count.textContent = String(sec.count != null ? sec.count : mine.length);
-      count.setAttribute('aria-label', plural(Number(count.textContent), 'oneBook', 'books'));
+      const num = sec.count != null ? sec.count : mine.length;
+      const n = document.createElement('span');
+      n.setAttribute('aria-hidden', 'true');
+      n.textContent = String(num);
+      const unit = document.createElement('span');
+      unit.className = 'vh';
+      unit.textContent = plural(Number(num), 'oneBook', 'books');
+      count.append(n, unit);
       a.append(label, count);
       a.addEventListener('click', (e) => {
         e.preventDefault();
@@ -458,6 +489,7 @@
   let searchTimer = null;
   function onSearchInput() {
     clearTimeout(searchTimer);
+    $('q').removeAttribute('aria-invalid');
     searchTimer = setTimeout(() => {
       state.q = $('q').value.trim();
       state.highlight = new Set();
@@ -471,8 +503,8 @@
     e.preventDefault();
     const q = $('q').value.trim();
     const status = $('search-status');
-    if (!q) { status.textContent = ui('askNeeded'); $('q').focus(); return; }
-    const hold = still() ? 500 : 3600;
+    if (!q) { status.textContent = ui('askNeeded'); $('q').setAttribute('aria-invalid', 'true'); $('q').focus(); return; }
+    const hold = still() ? 500 : 4400; // the fetching scene's loop ends with her presenting the book at about 4.4 s
     const started = Date.now();
     state.holdUntil = started + hold + 400;
     if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearInterval(flightTimer); }
@@ -506,6 +538,7 @@
 
   async function openBook(id, opener) {
     state.opener = opener || document.activeElement;
+    state.openerId = state.opener && state.opener.dataset ? state.opener.dataset.id || '' : '';
     let book;
     try { book = await getJSON(`/api/book/${encodeURIComponent(id)}`); }
     catch (e) { $('search-status').textContent = ui('bookError'); return; }
@@ -573,9 +606,14 @@
     $('leaf-name').textContent = pageName(p);
     body.innerHTML = html;
     body.scrollTop = 0;
-    $('folio').textContent = fmt(ui('pageOf'), { n: i + 1, of: book.pages.length });
-    $('book-prev').disabled = i === 0;
-    $('book-next').disabled = i === book.pages.length - 1;
+    const folio = $('folio');
+    folio.textContent = fmt(ui('pageOf'), { n: i + 1, of: book.pages.length });
+    const pn = document.createElement('span');
+    pn.className = 'vh';
+    pn.textContent = `, ${pageName(p)}`;
+    folio.append(pn);
+    $('book-prev').setAttribute('aria-disabled', String(i === 0));
+    $('book-next').setAttribute('aria-disabled', String(i === book.pages.length - 1));
     $('book-toc').querySelectorAll('.toc-item').forEach((b, k) => {
       if (k === i) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
@@ -585,7 +623,7 @@
   }
 
   function bookKeys(e) {
-    if (e.target.closest('input, textarea, select')) return;
+    if (e.target.closest('input, textarea, select') || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); turnTo(state.page + 1); }
     if (e.key === 'ArrowLeft') { e.preventDefault(); turnTo(state.page - 1); }
   }
@@ -601,6 +639,8 @@
     document.querySelectorAll('input[name="arrange"]').forEach((r) => r.addEventListener('change', () => {
       if (!r.checked) return;
       state.arrange = r.value;
+      state.arrangedBy = r.nextElementSibling.textContent;
+      $('search-status').dataset.keep = '';
       loadLibrary();
     }));
     $('q').addEventListener('input', onSearchInput);
@@ -613,7 +653,8 @@
     dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('close', () => {
       state.book = null;
-      const back = state.opener && document.contains(state.opener) ? state.opener : $('q');
+      const again = state.openerId && document.querySelector(`.spine[data-id="${CSS.escape(state.openerId)}"]`);
+      const back = state.opener && document.contains(state.opener) ? state.opener : again || $('q');
       back.focus();
     });
   }
