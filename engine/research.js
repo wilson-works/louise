@@ -230,13 +230,13 @@ async function start(opts) {
   if (current(home, true)) throw refuse(409, 'running', "I'm already working on my list.");
 
   const token = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  writeJson(runFile(home), { starting: true, token, at: new Date().toISOString() });
   const args = ARGS(home, o.writeRoot);
   const job = {
     token, cwd: home, log: logFile(home), runFile: runFile(home), stateFile: stage.stageFile(home),
     program: found.program, args: found.cmdShim ? [] : found.args.concat(args), image: found.image,
     cmdLine: found.cmdShim ? cmdLine(found.args[0], args) : null,
   };
+  writeJson(runFile(home), { starting: true, token, at: new Date().toISOString() });
   stage.set(stage.stageFile(home), 'researching', { note: 'Getting ready' });
   (o.launch || launchDetached)(job, home);
 
