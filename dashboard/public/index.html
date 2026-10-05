@@ -1,0 +1,160 @@
+<!doctype html>
+<!--
+  index.html: Louise's dashboard, one page in three parts (SPEC "The dashboard"): her desk (the scene for /api/stage, her
+  caption, what she is working on, and the request form), the Library (shelves of books you can arrange and search, or ask
+  her to fetch from) and the open book (a dialog whose pages you flip). Every line she says comes from /brand/copy.json;
+  elements marked data-copy are filled from it by app.js. No build step, no framework, nothing loaded from elsewhere.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Louise · The Research Librarian</title>
+  <link rel="icon" href="/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/brand/tokens.css">
+  <link rel="stylesheet" href="app.css">
+  <script src="md.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#library">Skip to the Library</a>
+
+  <header class="masthead">
+    <img class="masthead-mark" src="/mark.svg" alt="" width="44" height="44">
+    <div class="masthead-id">
+      <h1 class="masthead-name" data-copy="name">Louise</h1>
+      <p class="masthead-title" data-copy="title">The Research Librarian</p>
+    </div>
+    <p class="masthead-greeting" id="greeting"></p>
+  </header>
+
+  <main id="main">
+    <section class="desk" aria-labelledby="desk-heading">
+      <h2 class="vh" id="desk-heading">Her desk</h2>
+
+      <div class="desk-scene">
+        <div class="scene" id="scene" data-stage=""></div>
+        <div class="desk-under">
+          <div class="crt" id="crt" hidden>
+            <p class="crt-topic" id="crt-topic"></p>
+            <p class="crt-step" id="crt-step"></p>
+            <ol class="crt-dots" id="crt-dots" aria-hidden="true"></ol>
+            <p class="crt-note" id="crt-note"></p>
+          </div>
+          <button type="button" class="scene-pause" id="scene-pause">
+            <svg class="icon icon-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>
+            <svg class="icon icon-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.8v10.4a.6.6 0 0 0 .9.5l8.3-5.2a.6.6 0 0 0 0-1L5.4 2.3a.6.6 0 0 0-.9.5z"/></svg>
+            <span class="scene-pause-text" id="scene-pause-text">Pause the scene</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="desk-side">
+        <div class="caption" aria-live="polite" aria-atomic="true">
+          <p class="caption-stage" id="stage-name"></p>
+          <p class="caption-line" id="caption"></p>
+        </div>
+        <p class="desk-offline" id="desk-offline" role="status" hidden></p>
+
+        <form class="slip" id="request-form" novalidate aria-labelledby="request-title">
+          <h3 class="slip-title" id="request-title" data-copy="requests.title">Ask me to look something up</h3>
+          <div class="field">
+            <label for="req-topic" data-copy="requests.topicLabel">Your question</label>
+            <input id="req-topic" name="topic" type="text" maxlength="300" autocomplete="off" required
+                   aria-describedby="req-topic-error" data-copy-placeholder="requests.topicPlaceholder">
+            <p class="field-error" id="req-topic-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="req-framing" data-copy="requests.framingLabel">Anything I should know?</label>
+            <textarea id="req-framing" name="framing" rows="2" maxlength="600" data-copy-placeholder="requests.framingPlaceholder"></textarea>
+          </div>
+          <div class="slip-actions">
+            <button type="submit" class="btn btn-ink" id="req-submit" data-copy="requests.submit">Add to my list</button>
+            <p class="slip-status" id="req-status" role="status"></p>
+          </div>
+          <p class="slip-how" data-copy="requests.howToStart"></p>
+          <div class="queue" id="queue-wrap" hidden>
+            <h4 class="queue-title" id="queue-title">On her list</h4>
+            <ol class="queue-list" id="queue" aria-labelledby="queue-title"></ol>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="library" id="library" aria-labelledby="library-heading" tabindex="-1">
+      <div class="library-head">
+        <h2 class="library-title" id="library-heading" data-copy="library.title">The Library</h2>
+        <p class="library-count" id="library-count"></p>
+        <p class="library-examples" id="library-examples" hidden></p>
+      </div>
+
+      <div class="library-tools">
+        <fieldset class="arrange">
+          <legend data-copy="library.arrangeBy">Arrange the shelves by</legend>
+          <div class="arrange-options">
+            <label><input type="radio" name="arrange" value="topic" checked><span data-copy="library.arrange.topic">Topic</span></label>
+            <label><input type="radio" name="arrange" value="run"><span data-copy="library.arrange.run">Run</span></label>
+            <label><input type="radio" name="arrange" value="month"><span data-copy="library.arrange.month">Month</span></label>
+            <label><input type="radio" name="arrange" value="status"><span data-copy="library.arrange.status">Status</span></label>
+          </div>
+        </fieldset>
+
+        <form class="search" id="search-form" role="search" novalidate>
+          <label for="q" data-copy="library.searchPlaceholder">Search the shelves</label>
+          <div class="search-row">
+            <input id="q" name="q" type="search" maxlength="200" autocomplete="off" aria-describedby="search-status">
+            <button type="submit" class="btn btn-gilt" id="ask" data-copy="library.ask">Ask Louise</button>
+          </div>
+        </form>
+      </div>
+
+      <p class="library-status" id="search-status" role="status"></p>
+
+      <nav class="indicators" id="indicators-nav" aria-label="Shelf sections" hidden>
+        <ul class="indicators-list" id="indicators"></ul>
+      </nav>
+
+      <div class="shelves" id="shelves" aria-busy="true"></div>
+    </section>
+  </main>
+
+  <dialog class="book" id="book" aria-labelledby="book-title">
+    <div class="book-cover">
+      <button type="button" class="book-close" id="book-close">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span data-copy="book.close">Close the book</span>
+      </button>
+      <div class="book-spread">
+        <div class="page page-left">
+          <p class="book-kind" id="book-kind"></p>
+          <h2 class="book-title" id="book-title"></h2>
+          <dl class="book-meta" id="book-meta"></dl>
+          <nav class="book-toc" aria-label="Pages in this book">
+            <ol id="book-toc"></ol>
+          </nav>
+        </div>
+        <div class="page page-right">
+          <div class="leaf" id="leaf">
+            <h3 class="leaf-name" id="leaf-name"></h3>
+            <div class="md" id="leaf-body" tabindex="0" aria-labelledby="leaf-name"></div>
+          </div>
+          <p class="folio" id="folio" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="book-bar">
+        <button type="button" class="btn btn-quiet" id="book-prev">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3.5L5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-copy="book.prev">Previous page</span>
+        </button>
+        <button type="button" class="btn btn-quiet" id="book-next">
+          <span data-copy="book.next">Next page</span>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6 3.5L10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="flights" id="flights" aria-hidden="true"></div>
+</body>
+</html>

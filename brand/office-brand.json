@@ -1,0 +1,9 @@
+{
+  "bg": "#1E130C",
+  "panel": "#3A2618",
+  "ink": "#F5ECD7",
+  "accent": "#D9A441",
+  "accent2": "#A9E4F2",
+  "font": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, \"Book Antiqua\", Georgia, serif",
+  "mark": "mark.svg"
+}
