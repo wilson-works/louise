@@ -116,9 +116,14 @@ brings the book, and it opens.
 | `POST /api/fetch` `{ "q" }` | `{ "book": "<id>" or null, "matches": [ids] }`, and the stage goes to `fetching` |
 | `POST /api/request` `{ "topic", "framing" }` | appended to `requests/queue.md` in marathon-research's queue format; `{ "queued": n }` |
 | `GET /api/requests` | `{ "requests": [{ "topic", "framing", "at" }] }` |
+| `GET /api/research` | `{ "running", "since", "waiting", "claude" }`: is a run of her list going, how many questions wait, is Claude Code here |
+| `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library" }` |
+| `POST /api/research/stop` `{}` | stops the run she recorded, and only it; her stage goes to `idle`; `409` (`not-running`) when there is none |
+| `POST /api/feedback` `{ "q", "book", "helpful" }` | remembers whether the book she brought for `q` was the one you needed, in `state/feedback.jsonl`; `{ "remembered": n }` |
 
 The server binds 127.0.0.1 only, answers only Host `127.0.0.1`, `localhost` or the host in its own `door.phone`, reads
-only inside the configured library roots, and writes only `state/` and `requests/`.
+only inside the configured library roots, and writes only `state/` and `requests/`. The one program it starts is a
+research run (`POST /api/research`), with arguments fixed in `engine/research.js`.
 
 ## The library roots
 

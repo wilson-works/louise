@@ -43,8 +43,15 @@ In a chat opened on your Hub:
 - **"Louise, what do we have on sourdough?"** She finds the book and answers from its summary card, with the paths
   to every page.
 
-On her dashboard you can add a question to her list ("Ask me to look something up"), arrange the shelves, search
-them, open a book, or press "Ask Louise" and she fetches the book for you.
+On her dashboard you can add a question to her list ("Ask me to look something up") and press **Research my
+list** to start her on it, right there. Her desk shows each step, and **Stop** ends the run (anything she finished
+stays on the shelves). You can also arrange the shelves, search them, open a book, or ask her what you already have
+("Ask me what we already have", on her desk and above the shelves): she fetches the book she thinks it's in.
+
+A book she fetches for a question asks **"Was this the book you needed?"** Say no, and she tries the next shelf; when
+she runs out, she offers to put the question on her list. She remembers each answer, so a book that was right for a
+question comes first the next time someone asks something like it, and one that wasn't comes last. The answers stay in
+`state/feedback.jsonl` in her folder, on this computer only (the last 2,000); `engine/feedback.js` explains the rule.
 
 From her folder, the same things work at the command line:
 
@@ -65,10 +72,36 @@ node engine/stage.js get                         what she is doing now
 
 `node engine/config.js` shows which one she is using. The layout of a library is in `SPEC.md`.
 
+## Starting her from her dashboard
+
+"Research my list" runs Claude Code on this computer, with no one at the keyboard, in her folder, told
+"Louise, research my list." It needs Claude Code installed: she finds `claude` on your PATH (on Windows, the
+`claude.cmd` that npm installs is read for the program it starts), or you can name the program in
+`louise.config.json` as `"claude": "<path>"`. Nothing you type on the page reaches that command. She runs one research
+run at a time, and Stop ends only the run she started.
+
+A run started this way can do only what her runbook needs, and asks nobody:
+
+| Flag | Why |
+|---|---|
+| `-p "Louise, research my list."` | one session that ends when the runbook ends |
+| `--append-system-prompt` (fixed words) | tells the session the dashboard started it, so it never asks or waits (CLAUDE.md, "A run started from her dashboard") |
+| `--permission-mode acceptEdits` and `--add-dir <your library>` | it may write files only in her folder and in your library |
+| `--permission-prompts none` | anything else is refused at once, never left waiting for a person |
+| `--allowedTools WebSearch WebFetch Agent Skill` | the research itself, the skills' helpers, and the skills |
+| `--allowedTools "Bash(node engine/... *)"`, `"Bash(node state/run-tmp/*)"` | her own scripts, and the scratch scripts the research skill writes for its state and its source check |
+| `--disallowedTools AskUserQuestion CronCreate` | no questions, and no loop that outlives the session |
+
+It never gets `--dangerously-skip-permissions`. Your own Claude Code settings (your allow rules and hooks) still apply,
+as in any session of yours. The research skill's scratch scripts can run any code they hold: that is how the skill
+updates its state and checks sources, and it is the widest thing a run may do. The run's output goes to
+`state/research.log`; its pid, with a heartbeat, to `state/research-run.json`.
+
 ## What stays on your computer
 
 Her dashboard listens on this computer only and answers only this computer's own addresses. It reads only inside
-your library folders and writes only her stage (`state/`) and her list (`requests/`). Nothing is deleted: a
+your library folders and writes only `state/` (her stage, her research run's log and pid, and what she remembers from
+your answers) and her list (`requests/`). Nothing is deleted: a
 question too vague to research waits on its own shelf, and a report with a missing source is set aside and
 labelled.
 
