@@ -98,13 +98,16 @@ function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let done = false;
+    // Past the limit the rest is read and dropped (not cut off), so the answer still reaches the browser.
     req.on('data', (c) => {
+      if (done) return;
       size += c.length;
-      if (size > BODY_MAX) { reject(Object.assign(new Error('That is more than Louise can take in one go.'), { status: 413 })); req.destroy(); return; }
+      if (size > BODY_MAX) { done = true; reject(Object.assign(new Error('That is more than Louise can take in one go.'), { status: 413 })); return; }
       chunks.push(c);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
+    req.on('end', () => { if (!done) { done = true; resolve(Buffer.concat(chunks).toString('utf8')); } });
+    req.on('error', (e) => { if (!done) { done = true; reject(e); } });
   });
 }
 
