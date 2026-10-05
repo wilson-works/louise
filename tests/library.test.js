@@ -84,6 +84,24 @@ test('nothing deeper than the layout is read, and links are never followed', (t)
   assert.ok(!slugs.includes('2026-01-03-linked'), 'a linked folder is not a topic');
 });
 
+test('a link named like one of her own folders (failed, flagged, runs, council, summaries) is never read', (t) => {
+  const { roots } = makeLibrary();
+  const outside = tmpdir('outside-named');
+  write(path.join(outside, '2026-01-04-outside-topic', '01-overview.md'), '# Outside topic\n');
+  write(path.join(outside, 'outside-stub.md'), '# Outside stub\n');
+  write(path.join(outside, 'outside-run.md'), '---\nrun: outside\n---\n# Outside run\n');
+  write(path.join(outside, 'council-summary-2026-01-04.md'), '# Outside council\n');
+  write(path.join(outside, 'outside-card.md'), '# Outside card\n');
+  const root = tmpdir('named-links');
+  try {
+    for (const name of ['failed', 'flagged', 'runs', 'council', 'summaries']) {
+      fs.symlinkSync(outside, path.join(root, name), process.platform === 'win32' ? 'junction' : 'dir');
+    }
+  } catch (_) { t.diagnostic('could not make a link here; the check was skipped'); return; }
+  const index = library.buildIndex([Object.assign({}, roots[0], { path: root, council: 'council', state: path.join(root, 'none.json') })]);
+  assert.deepEqual(index.books.map((b) => b.title), [], 'nothing from outside the root reaches the shelves');
+});
+
 test('the four arrangements, and the search', () => {
   const { roots } = makeLibrary();
   const index = library.buildIndex(roots);

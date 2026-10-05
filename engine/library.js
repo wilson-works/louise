@@ -56,6 +56,11 @@ const STOP = new Set(['a', 'an', 'and', 'the', 'of', 'on', 'for', 'to', 'in', 'w
 function entries(dir) {
   try { return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => !e.isSymbolicLink()); } catch (_) { return []; }
 }
+/** A fixed-name folder under a root (failed, flagged, runs, council, summaries), or null when it is a link or junction:
+ *  its entries are never read, so nothing from outside the root reaches the shelves. Roots themselves may be links. */
+function ownFolder(dir) {
+  try { return fs.lstatSync(dir).isSymbolicLink() ? null : dir; } catch (_) { return null; }
+}
 const dirsIn = (dir) => entries(dir).filter((e) => e.isDirectory()).map((e) => e.name).sort();
 const filesIn = (dir) => entries(dir).filter((e) => e.isFile()).map((e) => e.name).sort();
 
@@ -210,7 +215,8 @@ function scanRoot(r, ri) {
   for (const base of bases) {
     for (const name of dirsIn(base)) if (TOPIC_RE.test(name)) books.push(topicBook(r, ri, path.join(base, name), name, 't', null));
     for (const [sub, code, status] of [['failed', 'f', 'failed'], ['flagged', 'x', 'flagged']]) {
-      const d = path.join(base, sub);
+      const d = ownFolder(path.join(base, sub));
+      if (!d) continue;
       for (const name of dirsIn(d)) if (TOPIC_RE.test(name)) books.push(topicBook(r, ri, path.join(d, name), name, code, status));
       for (const f of filesIn(d)) if (/\.md$/i.test(f) && !f.startsWith('_')) books.push(stubBook(r, ri, path.join(d, f), code, status));
     }
@@ -225,8 +231,8 @@ function scanRoot(r, ri) {
 
   // Run summary books.
   const runBooks = [];
-  const runDir = path.join(r.path, 'runs');
-  for (const f of filesIn(runDir)) {
+  const runDir = ownFolder(path.join(r.path, 'runs'));
+  for (const f of runDir ? filesIn(runDir) : []) {
     if (!/\.md$/i.test(f) || f.startsWith('_')) continue;
     const file = path.join(runDir, f);
     const t = head(file, 8192);
@@ -247,8 +253,8 @@ function scanRoot(r, ri) {
 
   // Council proceedings.
   const councilBooks = [];
-  const cDir = path.join(r.path, r.council);
-  const cFiles = filesIn(cDir);
+  const cDir = ownFolder(path.join(r.path, r.council));
+  const cFiles = cDir ? filesIn(cDir) : [];
   for (const f of cFiles) {
     const m = /^council-summary-(.+)\.md$/i.exec(f);
     if (!m) continue;
@@ -271,8 +277,8 @@ function scanRoot(r, ri) {
   // Summary cards, joined to their topics.
   const topicsBySlug = new Map(books.map((b) => [b.slug, b]));
   const links = indexLinks(r.path);
-  const sDir = path.join(r.path, 'summaries');
-  for (const f of filesIn(sDir)) {
+  const sDir = ownFolder(path.join(r.path, 'summaries'));
+  for (const f of sDir ? filesIn(sDir) : []) {
     if (!/\.md$/i.test(f) || f.startsWith('_') || /\.draft\.md$/i.test(f)) continue;
     const name = path.basename(f, '.md');
     const file = path.join(sDir, f);

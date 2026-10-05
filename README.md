@@ -76,4 +76,4 @@ labelled.
 
 - Node 20 or later, and nothing to install: Node's built-ins only, CommonJS, no build step.
 - `SPEC.md` is the contract: the stage file, the API, the library layout.
-- Tests are in `tests/` (`node --test tests/`).
+- Tests are in `tests/` (run `node --test` in this folder).

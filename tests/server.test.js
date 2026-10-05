@@ -65,12 +65,21 @@ test('/health answers {"ok":true}, no token, and a foreign Host is refused every
   const h = await req('GET', '/health');
   assert.equal(h.status, 200);
   assert.equal(h.text, '{"ok":true}');
-  for (const host of ['evil.example.org', `evil.example.org:${port}`, '127.0.0.2', '']) {
+  for (const host of ['evil.example.org', `evil.example.org:${port}`, '127.0.0.2']) {
     for (const p of ['/health', '/api/stage', '/', '/api/library']) {
       const r = await req('GET', p, { headers: { Host: host } });
       assert.equal(r.status, 403, `${host} ${p}`);
     }
   }
+  // An empty Host: Node's own client fills one in, so this one goes over a raw socket.
+  const raw = await new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write('GET /health HTTP/1.1\r\nHost: \r\nConnection: close\r\n\r\n'));
+    let got = '';
+    s.on('data', (d) => { got += d; });
+    s.on('end', () => resolve(got));
+    s.on('error', reject);
+  });
+  assert.match(raw, /^HTTP\/1\.1 403 /, 'an empty Host is refused');
   for (const host of ['localhost', `localhost:${port}`, 'louise.example-tailnet.ts.net']) {
     assert.equal((await req('GET', '/health', { headers: { Host: host } })).status, 200, host);
   }
