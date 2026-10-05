@@ -1,21 +1,63 @@
 # Louise: art notes (character model and room)
 
-For whoever draws her next scenes or films her. The model is `researching.svg`; copy from it, do not re-invent her.
+For whoever draws her next scenes or films her. She is a collectible vinyl-toy figure: a big head on a small body, in a
+room drawn as before. Two files are the model; copy from them and do not re-invent her:
+- `../art.svg` is the front view: proportions, colours, the eye recipe, the mitts and the shading recipe.
+- `researching.svg` is the side profile: the head group `lz-res-head`, and the seated body on its two-book booster.
 
-## Character model (as drawn)
-- Real seated-adult proportions, not chibi. At the desk her head is about 48 units tall (crown y 150, chin y 198, eye line y 172); the door figure (`../art.svg`) is a touch larger-headed (about 1/5.5) so she reads at 112 px.
-- Face: slightly long nose with a soft bump, laugh lines at the eye corner, small determined chin, gentle closed smile, rosy cheek as a soft shadow shape (#D68E7F at .4, no circles). Skin #E9BE9F, shadow #D29C7E.
-- Hair: silver-white #DCD8D0, shadow #B9B3A8, soft bun at the crown with loose wisps, a yellow pencil (#EDB82E, eraser #D9776B) pushed through it.
-- Glasses: BIG square tortoiseshell, frame #5A3A22 over an ink edge #2A1D14, two lenses in a three-quarter hint (far lens a sliver). Lens glass #A9E4F2 at low opacity. Gilt chain #D9A441 (beads #E8C27A) from each temple arm down behind the neck.
-- Clothes: cardigan #2F5A45 (knit #3E7259, shadow #24473A), cream blouse #FBF6EA with a rounded collar, gilt brooch with a garnet #7E2626, oxblood tweed skirt #6E2A26, dark stockings #3A2F3A, brown low-heeled shoes #6B4A2E.
-- Drawing hand: flat fills, ink #2A1D14 outline (2 at 640 wide, 1.2 for small details, round caps and joins), one shadow tone per material, light as translucent shapes. Two lights: warm lamp from the upper right (#F2C46B), cool screen glow on face and hands (#A9E4F2 / #7FD6E8, `mix-blend-mode: screen` on the face).
-- Props: beige CRT #DDD1B3 (light #EDE4CE, shade #C6B893, deep #A29372), oak desk #7A5030 (top #9A6A3F, edge #5C3B22), brass #D9A441, red marker #C62828.
+## Character model (vinyl-toy style)
+- **Proportions.** The head is as big as the whole body, or bigger.
+  - Door: the head box is x 48 to 152 and y 22 to 118 (104 by 96). The body runs y 114 to 207.
+  - Room, side profile: the head is 100 by 92. Standing, she is about 195 tall to the crown.
+  - The head is a rounded square: corner radius about 32 to 34, the jaw corner a touch fuller.
+  - Simple chunky shapes. No realistic anatomy, wrinkles, laugh lines, knit lines or strand lines.
+- **Eyes** (owner's ruling: cartoon eyes that fill the panes, never solid black dots). Behind each square pane is one big eye:
+  - The eye white is #FFFDF7, inset 2.5 and clipped to the pane.
+  - Iris: r 9.5 to 10 in #6B4A2E, with a lighter lower crescent in #9A6A3F.
+  - Pupil: r 5.2 to 5.5 in #1E130C.
+  - Catch-lights: white, r 3 upper-left and r 1.4 lower-right.
+  - A skin-coloured upper lid covers about the top fifth of the white, so she looks kind, not startled.
+  - Front view: both eyes, nudged a little inward and down toward you.
+  - Profile: ONE eye fills the near pane, its iris toward where she is looking.
+  - The gaze and lid carry the mood: rapt at the screen, down at a book, half-lidded and content with her tea.
+- **Glasses**, her signature, oversized.
+  - Panes: square, about 38 by 34 on the door (x 57 to 95 and 105 to 143, y 58 to 92) and 34 by 33 in profile, rx 6.
+  - Frame: thick tortoiseshell, stroke 5, #5A3A22, with a #9A6A3F streak along the top at .6.
+  - Lens: tint #A9E4F2 at .12, and one white glare band across each pane's upper-left corner at .35.
+  - Profile: the far lens is a 4 to 6 unit sliver in front of the near pane, and a temple arm (stroke 4.4) runs into the hair.
+- **Chain**: gilt #D9A441, stroke 3, with beads #E8C27A drawn as a dotted stroke (`stroke-dasharray: 0.01 10`, width 4.8).
+  - Front view: it leaves both temples, swings outside the head and droops in a U across her collar.
+  - Profile: it runs from the temple behind the jaw to her shoulder.
+- **Face**
+  - Skin #E9BE9F, lit by a subtle radial gradient to #F1C9AC, with a #D29C7E shadow crescent.
+  - Nose: a tiny #D29C7E oval in front view; a small rounded nub in profile.
+  - Mouth: one short kind smile curve (#9C5A48, stroke about 2.4).
+  - Cheeks: blush ellipses #D68E7F at .45.
+- **Hair**
+  - Silver-white #DCD8D0 over #B9B3A8: a sculpted cap with a fringe of two or three smooth lumps, and a soft white highlight arc at .4.
+  - Bun: a sphere at the crown with a specular spot.
+  - Pencil: a chunky yellow pencil through the bun (#EDB82E, stripe #D29A1A, ferrule #B9B3A8, eraser #D9776B).
+- **Clothes**
+  - Cardigan #2F5A45 (lit #3E7259, shade #24473A).
+  - Cream blouse #FBF6EA with a two-lobe collar (under-shadow #D9C49E).
+  - Gilt buttons, and a gilt brooch with a garnet #7E2626.
+  - A plain oxblood A-line skirt #6E2A26 (shade #4E1C1A).
+  - Stubby legs #3A2F3A and rounded nub shoes #6B4A2E with a glossy dot.
+- **Arms and hands**: stubby sleeve tubes about 13 to 14 wide with cream cuffs. Hands are skin mitts: a palm, four fanned finger capsules and a thumb, drawn as a #D29C7E layer under an #E9BE9F layer offset by -1.1. There are no finger lines.
+- **Vinyl shading**
+  - Flat fills, one shadow shape per part (light from the upper left), soft white highlight bands and specular dots.
+  - A soft drop shadow at her feet (#2A1D14 at about .26).
+  - No ink outlines inside the figure. The head and bun alone carry a soft edge (#2A1D14, opacity .35, width 1.6), so the silver hair holds on a pale wall.
+- **Seated**: she sits on two fat books stacked on her chair (navy #283C5E and oxblood #7E2626, gilt bands, cream page edges). Her feet dangle above the floor.
+- **Room lights**: the warm lamp (#F2C46B) and the cool screen glow (#A9E4F2 / #7FD6E8, `mix-blend-mode: screen`) still fall on her face, the near lens and the mitts.
+- **Props**: beige CRT #DDD1B3 (light #EDE4CE, shade #C6B893, deep #A29372), oak desk #7A5030 (top #9A6A3F, edge #5C3B22), brass #D9A441, red marker #C62828. The room keeps its ink-outlined drawing; only Louise is a toy.
+- **In public files** call the style "vinyl-toy" or "collectible-figure". Never name a toy brand.
 
 ## Room layout (viewBox 0 0 640 400, same in every desk scene)
 - Wall to y 244; oak wainscot y 244 to 340; floor line y 340; floor to 400. Shelf x 516 to 640, full height, boards at y 96, 168, 240, 312.
 - Desk: top surface y 250 to 270, edge to y 280; drawer pedestal x 14 to 188 (y 280 to 382); right leg x 490 to 510; kneehole x 188 to 490.
 - Beige tower under the desk x 200 to 262, y 300 to 382. Monitor on the desk: case x 119 to 268, y 148 to 262, screen glass edge at x 262 to 270, facing right. Keyboard x 276 to 372 (top about y 252 to 260). Mouse and pad x 438 to 482 (behind her, right of the keyboard).
-- Chair: seat x 414 to 500, y 300 to 313; post x 447; back rail x 466 to 496, y 222. Louise: hips about (440, 300), shoulder (386, 230), nose tip x 292 (screen glass at x 270), feet at y 384. Banker's lamp x 482 to 516. Book stack x 26 to 88, mug of pens (red marker) x 98 to 120.
+- Chair (moved left for her): seat x 360 to 450, y 300 to 313; post x 405; back rail x 413 to 443, y 222. Booster books x 372 to 444, y 279 to 300. Louise at the screen: head box x 294 to 394, y 136 to 228 (`lz-res-head` at `translate(294 136)`); eye centre (306.5, 190); nose nub tip x 290.6 (screen glass at x 270); torso x 347 to 420, y 222 to 274; mitts on the keys at x 305 to 350, y 236 to 256; feet dangle at about y 322. Banker's lamp x 482 to 516. Book stack x 26 to 88, mug of pens (red marker) x 98 to 120.
 
 ## Naming and scoping (the dashboard puts these inline, two at once)
 - Root id `lz-<scene>` (`lz-researching`, `lz-door`), class `lz-scene`, `role="img"` with a `<title>`.
@@ -25,11 +67,11 @@ For whoever draws her next scenes or films her. The model is `researching.svg`; 
 - Safety: nothing flashes more than 3 times a second; the screen flicker stays between opacity .78 and 1.
 
 ## Files and motion
-- `researching.svg`: groups `lz-res-room`, `lz-res-desk`, `lz-res-light`, `lz-res-pc`, `lz-res-louise` (chair, legs, `lz-res-lean` holding torso, head, both arms), `lz-res-lamp`. Motion: `.lz-res-glow` screen light brightens and settles (2.4 s); `.lz-res-band-a/b/c` light bands sweep toward her face (2.4 s, staggered); `.lz-res-hand-l` (1.2 s) and `.lz-res-hand-r` (1.5 s) bob 1 to 2 px in steps; `.lz-res-lean` leans 1.6 px (6 s); `.lz-res-led-disk` amber disk light blinks (3.7 s).
-- `idle.svg` (`lz-idl-`): she sits back with a cup of tea in both hands, her glasses resting on their chain against her chest, eyes softly closed. Motion: `.lz-idl-steam-a/b/c` three wisps rise from the cup (4 s, staggered 1.35 s); `.lz-idl-breath` 1 px (5 s); `.lz-idl-glow` the idle monitor's dim glow (8 s, opacity .55 to .7).
-- `council.svg` (`lz-cou-`): she reads an open book held up before her, glasses on, the banker's lamp lit; five slim books on the desk, one per reader. Motion: `.lz-cou-leaf` a page leaf turns (700 ms every 5.6 s); `.lz-cou-pupil` her eyes travel the lines (2.2 s); `.lz-cou-breath` (5 s).
-- `distill.svg` (`lz-dis-`): she leans over ruled sheets with the red marker, its cap on the desk, a pile of finished index cards with red ticks at the left; the keyboard is pushed back. Motion: `.lz-dis-m1/m2/m3` two strike-throughs and a circled word draw in (`stroke-dashoffset`) then fade (3.5 s loop); `.lz-dis-hand` follows each stroke; `.lz-dis-breath` (5 s).
+- `researching.svg`: groups `lz-res-room`, `lz-res-desk`, `lz-res-light`, `lz-res-pc`, `lz-res-louise` (chair with the two-book booster, legs, `lz-res-lean` holding torso, head, both arms), `lz-res-lamp`. She sits side-on, her nose nub inches from the glass, one big cartoon eye in the near pane looking at the screen, both mitts on the keys. Motion: `.lz-res-glow` screen light brightens and settles (2.4 s); `.lz-res-band-a/b/c` light bands sweep from the glass to her near pane (2.4 s, staggered); `.lz-res-hand-l` (1.2 s) and `.lz-res-hand-r` (1.5 s) bob 1 to 2 px in steps; `.lz-res-lean` leans 1.6 px (6 s); `.lz-res-led-disk` amber disk light blinks (3.7 s).
+- `idle.svg` (`lz-idl-`): the seated figure from researching sits back a little (`lz-idl-pose` rotates 6 degrees) with a cup of tea in both mitts, her glasses on, the big eye half-lidded and content. Motion: `.lz-idl-steam-a/b/c` three wisps rise from the cup (4 s, staggered 1.35 s); `.lz-idl-breath` 1 px (5 s); `.lz-idl-glow` the idle monitor's dim glow (8 s, opacity .55 to .7).
+- `council.svg` (`lz-cou-`): the seated figure reads a chunky oxblood book held up in both mitts, her big eye looking down at the pages, the banker's lamp lit; five slim books on the desk, one per reader. Motion: `.lz-cou-leaf` a page leaf turns on the book's spine (700 ms every 5.6 s); `.lz-cou-pupil` the iris, pupil and catch-lights travel the lines, about 2.5 px each way (2.2 s); `.lz-cou-breath` (5 s).
+- `distill.svg` (`lz-dis-`): the seated figure tips forward over ruled sheets with the red marker, its cap on the desk, a pile of finished index cards with red ticks at the left; the keyboard is pushed back. Motion: `.lz-dis-m1/m2/m3` two strike-throughs and a circled word draw in (`stroke-dashoffset`) then fade (3.5 s loop); `.lz-dis-hand` (cuff, mitt and marker) follows each stroke about (364.05, 249.95), the marker tip resting at (340.44, 254.47); `.lz-dis-breath` (5 s).
 - `shelving.svg` (`lz-shl-`): she stands at a three-shelf book cart in side profile, knees soft, stooping a little; she lifts the top book from a short stack on the desk, turns it upright and slides it into the empty slot on the cart's top shelf. One 3 s ease-in-out loop: `.lz-shl-lean`, `.lz-shl-u` / `.lz-shl-fo` (near arm), `.lz-shl-book`, `.lz-shl-top` / `.lz-shl-newbook` (an opacity swap), `.lz-shl-far`, `.lz-shl-nod`, `.lz-shl-breath`. The cart is `lz-shelving-cart`: the dashboard launches its flying spines from 50% across and 30% down that group's box, so its top shelf stays in the upper third.
 - `fetching.svg` (`lz-fet-`): a 4.8 s loop. She turns and walks to the bookcase (0.22 to 1.54 s), reaches up and draws an oxblood book from the third shelf (1.98 to 2.3 s; `lz-fet-spine` leaves a gap), turns, walks back (2.58 to 3.84 s) and holds the book up in both hands, cover toward us, smiling (from about 4.0 s; the dashboard opens the book at 4.4 s). The un-animated frame is that presenting pose. She is the standing profile figure mirrored by `lz-fet-turn`; the legs are driven by inverse kinematics so planted feet do not slide, and the gait keyframes were sampled by a script, so they are dense lists of small steps: change the pose, not single keyframes.
-- `../art.svg` (viewBox 0 0 200 220, transparent): Louise in her office door, turned three-quarters toward you, weight on one leg, head tipped a little, a navy book in the crook of one arm, a plain oxblood A-line skirt. Groups `lz-door-shadow`, `lz-door-body`, `lz-door-head`, `lz-door-arms`; `.lz-door-wave` rotates the raised forearm about the elbow (2 s ease-in-out, about -10 to +6 degrees). She reads at about 112 px tall.
+- `../art.svg` (viewBox 0 0 200 220, transparent): Louise in her office door as a front-facing vinyl-toy figure, head tipped 4 degrees, both cartoon eyes looking at you through her big square glasses, the chain drooping across her collar, a navy book held against her side, the other mitt waving. Groups `lz-door-shadow`, `lz-door-body`, `lz-door-head` (with `lz-door-glasses`, `lz-door-chain`), `lz-door-arms`; `.lz-door-wave` rotates the raised forearm and mitt about the elbow (158, 138), 2 s ease-in-out, about -10 to +6 degrees. She reads at about 112 px tall.
 - `../mark.svg` (viewBox 0 0 48 48): bookplate seal with glasses on a chain; no motion; holds at 16 px.
