@@ -720,6 +720,7 @@
   function showVerdict(said) {
     const v = $('verdict');
     v.hidden = !state.asked;
+    $('book').classList.toggle('is-asked', Boolean(state.asked));
     if (!state.asked) return;
     $('verdict-q').hidden = false;
     $('verdict-yes').hidden = false;
