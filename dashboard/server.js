@@ -13,7 +13,10 @@
  *   - A POST must be JSON (application/json) and, when the browser says where it came from (Origin, Sec-Fetch-Site),
  *     from this page. A page on another site cannot add to her list or send her fetching.
  *   - Reads library pages only inside the configured library roots (their real paths, links followed and checked),
- *     at most 512 KB a page. Writes only state/ (her stage) and requests/ (her list).
+ *     at most 512 KB a page. Writes only state/ (her stage, her research run's files, what she remembers from your
+ *     answers) and requests/ (her list).
+ *   - Starts one program: Claude Code, for a research run of her list, with arguments fixed in engine/research.js.
+ *     Nothing from a request reaches it. It stops only the run it recorded.
  *
  * Files it serves (GET and HEAD), each only from inside its own folder, never a dot-file:
  *   /                 dashboard/public/index.html (a short holding page until it exists)
@@ -33,9 +36,20 @@
  *   POST /api/fetch    { q }             { book, matches }, and her stage goes to fetching
  *   POST /api/request  { topic, framing }  { queued: n }, appended to requests/queue.md
  *   GET  /api/requests                   { requests: [{ topic, framing, at }] }
- * An error is { "error": "<a plain sentence>" } with a 4xx status.
+ *   GET  /api/research                   { running, since, waiting, claude }: is a run of her list going, how many
+ *                                        questions wait, is Claude Code here
+ *   POST /api/research   {}              starts one run (engine/research.js): 202 { running: true }; 409 with
+ *                                        { error, reason: empty | running | no-claude | no-library } when it cannot
+ *   POST /api/research/stop  {}          stops the run she recorded: { running: false }; 409 (reason not-running) when
+ *                                        there is none. The body is never read for a pid.
+ *   POST /api/feedback { q, book, helpful }  remembers whether the book she brought for q was the one you needed
+ *                                        (engine/feedback.js): { remembered: n }. q is cut to 300 characters; book must
+ *                                        be on the shelves (404); helpful must be true or false (400).
+ * An error is { "error": "<a plain sentence>" } with a 4xx status (and a "reason" for the research routes).
  *
- *   createServer(opts)   the server, not yet listening (the tests use it). opts { home, roots, phoneHost, port }
+ *   createServer(opts)   the server, not yet listening (the tests use it). opts { home, roots, phoneHost, port,
+ *                        writeRoot, claude, launch }: writeRoot and claude as engine/config.js gives them; launch
+ *                        replaces how a run is started (the tests pass a harmless fake)
  */
 
 const fs = require('fs');
@@ -46,6 +60,8 @@ const library = require('../engine/library');
 const stage = require('../engine/stage');
 const fetcher = require('../engine/fetch');
 const requests = require('../engine/requests');
+const research = require('../engine/research');
+const feedback = require('../engine/feedback');
 
 const HOME = path.resolve(__dirname, '..');
 const BODY_MAX = 16 * 1024;
@@ -117,6 +133,8 @@ function createServer(opts) {
   const roots = o.roots;
   const stateFile = stage.stageFile(home);
   const queueFile = requests.queueFile(home);
+  const feedbackFile = feedback.feedbackFile(home);
+  const runOpts = { home, writeRoot: o.writeRoot || null, claude: o.claude || null, launch: o.launch };
   const hosts = new Set(['127.0.0.1', 'localhost']);
   if (o.phoneHost) hosts.add(String(o.phoneHost).toLowerCase());
   const dirs = { public: path.join(home, 'dashboard', 'public'), art: path.join(home, 'art'), brand: path.join(home, 'brand') };
@@ -145,6 +163,7 @@ function createServer(opts) {
       return json(res, 200, library.shelves(index(), { arrange: url.searchParams.get('arrange') || 'topic', q: url.searchParams.get('q') || '' }));
     }
     if (p === '/api/requests' && m === 'GET') return json(res, 200, { requests: requests.list(queueFile) });
+    if (p === '/api/research' && m === 'GET') return json(res, 200, research.status(runOpts));
     let bm = /^\/api\/book\/([A-Za-z0-9._-]{1,200})$/.exec(p);
     if (bm && m === 'GET') {
       const v = library.bookView(index(), bm[1]);
@@ -153,7 +172,7 @@ function createServer(opts) {
     bm = /^\/api\/book\/([A-Za-z0-9._-]{1,200})\/page\/(\d{1,4})$/.exec(p);
     if (bm && m === 'GET') return json(res, 200, library.readPage(index(), bm[1], Number(bm[2])));
 
-    if ((p === '/api/fetch' || p === '/api/request') && m === 'POST') {
+    if (['/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback'].includes(p) && m === 'POST') {
       const refused = postRefused(req);
       if (refused) return fail(res, 403, refused);
       let body;
@@ -162,10 +181,24 @@ function createServer(opts) {
         return fail(res, 400, 'That was not readable JSON.');
       }
       if (!body || typeof body !== 'object' || Array.isArray(body)) return fail(res, 400, 'Send one JSON object.');
-      if (p === '/api/fetch') return json(res, 200, fetcher.fetchBook(body.q, { roots, stateFile }));
+      if (p === '/api/fetch') return json(res, 200, fetcher.fetchBook(body.q, { roots, stateFile, feedbackFile }));
+      if (p === '/api/feedback') {
+        const ix = index();
+        return json(res, 200, feedback.record(feedbackFile, { q: body.q, book: body.book, helpful: body.helpful }, { known: (id) => ix.byId.has(id) }));
+      }
+      // The research routes take nothing from the body: the program, its arguments and the pid are all her own.
+      if (p === '/api/research' || p === '/api/research/stop') {
+        try {
+          if (p === '/api/research') return json(res, 202, await research.start(runOpts));
+          return json(res, 200, research.stop(runOpts));
+        } catch (e) {
+          if (e && e.reason) return json(res, e.status, { error: e.message, reason: e.reason });
+          throw e;
+        }
+      }
       return json(res, 200, requests.add(queueFile, { topic: body.topic, framing: body.framing }));
     }
-    if (['/api/stage', '/api/library', '/api/requests', '/api/fetch', '/api/request'].includes(p)) return fail(res, 405, 'That address does not take that kind of request.');
+    if (['/api/stage', '/api/library', '/api/requests', '/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback'].includes(p)) return fail(res, 405, 'That address does not take that kind of request.');
     return fail(res, 404, 'Not found.');
   }
 
@@ -209,7 +242,7 @@ if (require.main === module) {
   let cfg;
   try { cfg = config.load(); } catch (e) { process.stderr.write(`${e.message}\nLouise's dashboard was not started.\n`); process.exit(2); }
   const pidFile = path.join(HOME, 'dashboard', '.pid');
-  const server = createServer({ home: cfg.home, roots: cfg.roots, phoneHost: cfg.phoneHost });
+  const server = createServer({ home: cfg.home, roots: cfg.roots, phoneHost: cfg.phoneHost, writeRoot: cfg.writeRoot, claude: cfg.claude });
   const clearPid = () => {
     try { if (fs.readFileSync(pidFile, 'utf8').trim() === String(process.pid)) fs.rmSync(pidFile, { force: true }); } catch (_) { /* not ours, or gone */ }
   };
