@@ -288,7 +288,7 @@
     const el = document.createElement('div');
     el.className = `flight spine-${SPINES[flightN++ % SPINES.length]}`;
     $('flights').append(el);
-    const arc = Math.min(y0, y1) - 80;
+    const arc = Math.min(y0, y1) - Math.min(80, a.height * 0.45); // a small toss on a phone, not a lob across her face
     el.animate([
       { transform: `translate(${x0}px, ${y0}px) rotate(-10deg) scale(0.6)`, opacity: 0 },
       { transform: `translate(${x0 + (x1 - x0) * 0.15}px, ${y0 - 40}px) rotate(-4deg) scale(0.8)`, opacity: 1, offset: 0.18 },
@@ -509,6 +509,9 @@
     const started = Date.now();
     state.holdUntil = started + hold + 400;
     if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearInterval(flightTimer); }
+    // On a phone the search sits far below her desk: bring her into view so you see her go to the shelf.
+    const seen = $('scene').getBoundingClientRect();
+    if (!still() && (seen.top < 0 || seen.bottom > window.innerHeight)) $('scene').scrollIntoView({ behavior: 'smooth', block: 'center' });
     caption('fetching', {});
     state.stageKey = 'fetching|';
     status.textContent = '';
