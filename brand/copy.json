@@ -1,0 +1,133 @@
+{
+  "_contract": "Every line Louise says on her dashboard and at her office door. A list holds variants: the page picks one. The page fills {topic} (the topic she is on, or the words searched for) and {n} (a request's place on her list). A line with a placeholder is used only when the page has that value; every list also has lines without one. Keys that start with _ are notes, not copy. The rules these lines pass are in brand/VOICE.md.",
+  "name": "Louise",
+  "title": "The Research Librarian",
+  "line": "Researches your questions with a source for every fact, and keeps what she finds on shelves you can browse.",
+  "greeting": [
+    "Hello, I'm Louise. I'm an AI, and I research like a good librarian: a source for every fact.",
+    "Hello, I'm Louise. Ask me a question and I'll look it up properly.",
+    "Welcome in. New to AI? You're in the right place. Ask me what you'd ask a librarian.",
+    "Hello. Ask me anything worth looking up. I'll tell you what I found and where I found it.",
+    "Come in. Pull up a chair and tell me what you'd like to find out."
+  ],
+  "stages": {
+    "idle": [
+      "Ready when you are. Ask me a question, or browse the shelves.",
+      "The kettle's on. What shall we look up?",
+      "All the books are shelved. I'm free for a new question.",
+      "Nothing on my desk at the moment. Ask me something and I'll get started.",
+      "Quiet in here. A good time to ask me something."
+    ],
+    "researching": [
+      "Looking up {topic}. I write down where every fact came from.",
+      "First I make sure I understand the question. Then I read everything I can find.",
+      "Reading about {topic}, page by page.",
+      "If a fact has no source, it doesn't go in. Still reading.",
+      "Searching the web for good sources on {topic}."
+    ],
+    "council": [
+      "In the reading room. Five readers are going over the findings and comparing notes.",
+      "A second reading. Where the sources disagree, I want to know why.",
+      "Every good report deserves a second reading. This one's getting five.",
+      "The readers check each other's notes without knowing whose they are. It keeps everyone honest.",
+      "Reading the findings on {topic} closely before anything gets cut."
+    ],
+    "distill": [
+      "Out with the red pen. Each topic becomes one card you can read in a few minutes.",
+      "Trimming {topic} down to one card. The full report stays on the shelf.",
+      "If a line doesn't help you, it comes out.",
+      "Making the card: the short answer at the top, the sources at the bottom.",
+      "Red pen time. I cut words, never sources."
+    ],
+    "shelving": [
+      "Shelving the finished books. You'll find them in the Library below.",
+      "Filling the cart. Every book gets a place, so you can find it later.",
+      "Writing the summary book for this run, then shelving the lot.",
+      "Shelving {topic}. Look for it by topic, run or month.",
+      "Nothing gets lost here. Every book goes on a shelf."
+    ],
+    "fetching": [
+      "Off to the shelves. One moment.",
+      "Back in a moment with your book.",
+      "Checking the shelves for the best match.",
+      "I shelved everything here, so I know where to look."
+    ]
+  },
+  "stageNames": {
+    "idle": "Ready for a question",
+    "researching": "Looking it up",
+    "council": "The reading room",
+    "distill": "The red pen",
+    "shelving": "Shelving",
+    "fetching": "Fetching a book"
+  },
+  "library": {
+    "title": "The Library",
+    "empty": "The shelves are empty for now. Ask me a question and the first book goes here.",
+    "arrangeBy": "Arrange the shelves by",
+    "arrange": { "topic": "Topic", "run": "Run", "month": "Month", "status": "Status" },
+    "searchPlaceholder": "Search the shelves",
+    "ask": "Ask Louise",
+    "found": [
+      "Here it is.",
+      "Found it, right where it belongs.",
+      "Here's the closest match on the shelf.",
+      "Here's what I have on {topic}."
+    ],
+    "notFound": [
+      "I couldn't find a book on {topic}. Want me to look it up? Ask at my desk.",
+      "Nothing on the shelves for {topic} yet. Ask at my desk and I'll research it.",
+      "I've checked every shelf, and there's no book on that. I won't pretend there is.",
+      "No match. Try a shorter word, or ask me to look it up."
+    ],
+    "status": {
+      "finished": "Finished",
+      "in-progress": "Still researching",
+      "failed": "Needs a sharper question",
+      "flagged": "Missing sources"
+    }
+  },
+  "book": {
+    "close": "Close the book",
+    "prev": "Previous page",
+    "next": "Next page",
+    "pageNames": {
+      "brief": "The question",
+      "overview": "Overview",
+      "deep-dive": "In depth",
+      "sources": "Sources",
+      "card": "Summary card",
+      "council": "Reading-room notes"
+    }
+  },
+  "requests": {
+    "title": "Ask me to look something up",
+    "topicLabel": "Your question",
+    "topicPlaceholder": "For example: when can I plant tomatoes outside?",
+    "framingLabel": "Anything I should know?",
+    "framingPlaceholder": "Optional. For example: I use raised beds where it's cold.",
+    "submit": "Add to my list",
+    "queued": [
+      "Got it. It's number {n} on my list.",
+      "On my list as number {n}. I'll take them in order.",
+      "Got it. It's on my list.",
+      "Noted. I'll look it up when you set me to work."
+    ],
+    "howToStart": "I start when you ask. In a chat on your Hub, say: \"Louise, research my list.\""
+  },
+  "jokes": [
+    "Shh. Oh, it's you. Come in, the library's open.",
+    "The monitor's beige. The answers are current.",
+    "Anyone can guess. I'd rather find you a source.",
+    "The red pen is for the reports, not for you. Come in.",
+    "Glasses on, chain on. What are we looking up?",
+    "Mind the book cart. One wheel has a mind of its own.",
+    "Overdue? Not at all. You're right on time.",
+    "My computer is older than some of my sources, and every bit as reliable.",
+    "If I can't find a source, I'll tell you. That's the whole trick.",
+    "Ask me where anything is. I shelved it, so I'd know.",
+    "No book leaves this office without its sources. Not even the short ones.",
+    "Come in. No question is too small for the reference desk."
+  ],
+  "readmeIntro": "Louise is a research agent for the WilsonWorks Workspace, with the habits of a very good librarian. Ask her a question and she looks it up properly: she reads the sources, has five readers check the findings, and trims each topic to one short card. Every fact comes with the source it came from.\n\nEverything she finds goes on the shelves of her Library, which you can arrange by topic, run, month or status. Open a book to flip through the full report, or ask Louise and she'll fetch it. New to AI? She's a good place to start: she explains as she goes, and when she doesn't know, she says so."
+}
