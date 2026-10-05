@@ -104,7 +104,7 @@
     "title": "Ask me to look something up",
     "topicLabel": "Your question",
     "topicPlaceholder": "For example: when can I plant tomatoes outside?",
-    "framingLabel": "Anything I should know?",
+    "framingLabel": "Anything I should know? (optional)",
     "framingPlaceholder": "Optional. For example: I use raised beds where it's cold.",
     "submit": "Add to my list",
     "queued": [
