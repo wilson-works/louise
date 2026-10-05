@@ -1,0 +1,119 @@
+/* brand/tokens.css: Louise the Librarian's palette and type, the one place her colours and fonts are named.
+ *
+ * Contract: the dashboard (dashboard/public/app.css) uses the semantic tokens (--lz-bg, --lz-on-paper, ...), never a raw
+ * colour. The art in art/ is drawn from the same primitives, written out as plain hex so each SVG stands on its own (the
+ * office and a README show them as images). brand/office-brand.json carries the five office colours picked from here.
+ * Type uses fonts already on Windows and macOS: nothing is downloaded at run time and nothing is embedded.
+ * Every text pair below was measured against WCAG 2.2 SC 1.4.3 (4.5:1 for body text); the ratio sits beside it.
+ */
+:root {
+  /* ---- primitives: the room ---- */
+  /* wood: the shelves, the panelling, the desk */
+  --lz-walnut-900: #1E130C;
+  --lz-walnut-800: #2A1B11;
+  --lz-walnut-700: #3A2618;
+  --lz-oak-600: #5C3B22;
+  --lz-oak-500: #7A5030;
+  --lz-oak-400: #9A6A3F;
+  --lz-honey-300: #C8925A;
+
+  /* paper: pages, cards, catalogue slips */
+  --lz-paper-50: #FBF6EA;
+  --lz-paper-100: #F5ECD7;
+  --lz-paper-200: #EADBBE;
+  --lz-paper-300: #D9C49E;
+
+  /* ink */
+  --lz-ink-900: #2A1D14;
+  --lz-ink-700: #4A3727;
+  --lz-ink-500: #6E5642;
+
+  /* gilt: the lettering on a good spine (her accent) */
+  --lz-gilt-400: #D9A441;
+  --lz-gilt-300: #E8C27A;
+
+  /* book spines: one colour per shelf section, each with the ink that reads on it */
+  --lz-spine-oxblood: #7E2626;  /* paper text 8.15:1 */
+  --lz-spine-green: #2F5A45;    /* paper text 6.69:1 */
+  --lz-spine-navy: #283C5E;     /* paper text 9.41:1 */
+  --lz-spine-plum: #553553;     /* paper text 8.84:1 */
+  --lz-spine-teal: #2B6266;     /* paper text 5.87:1 */
+  --lz-spine-mustard: #B9862C;  /* ink text 5.07:1 */
+  --lz-spine-tan: #C29466;      /* ink text 6.01:1 */
+  --lz-spine-slate: #4B5663;    /* paper text 6.36:1 */
+  --lz-spine-brown: #6B4A2E;    /* paper text 6.76:1 */
+  --lz-spine-olive: #3E4A2A;    /* paper text 8.05:1 */
+
+  /* the CRT: a cool phosphor glow in a warm room */
+  --lz-crt-screen: #10262E;
+  --lz-crt-phosphor: #7FD6E8;
+  --lz-crt-glow: #A9E4F2;
+
+  /* the beige PC, circa 2000 */
+  --lz-beige-100: #EDE4CE;
+  --lz-beige-200: #DDD1B3;
+  --lz-beige-300: #C6B893;
+  --lz-beige-400: #A29372;
+
+  /* her red marker */
+  --lz-marker: #C62828;         /* on paper 4.78:1 */
+  --lz-marker-deep: #A51F1F;    /* on paper 6.34:1 */
+
+  /* ---- semantic: what the page uses ---- */
+  --lz-bg: var(--lz-walnut-900);
+  --lz-surface: var(--lz-walnut-800);
+  --lz-surface-raised: var(--lz-walnut-700);
+  --lz-on-surface: var(--lz-paper-100);         /* 14.14:1 on walnut-800 */
+  --lz-on-surface-muted: #CDBA98;               /* 8.76:1 on walnut-800, 7.53:1 on walnut-700 */
+  --lz-line: var(--lz-oak-400);                 /* 3.57:1 on walnut-800 (SC 1.4.11) */
+  --lz-paper: var(--lz-paper-100);
+  --lz-paper-edge: var(--lz-paper-200);
+  --lz-on-paper: var(--lz-ink-900);             /* 13.91:1 */
+  --lz-on-paper-muted: var(--lz-ink-500);       /* 5.81:1 on paper-100, 5.00:1 on paper-200 */
+  --lz-paper-line: var(--lz-oak-400);           /* 3.96:1 on paper-100 (SC 1.4.11) */
+  --lz-accent: var(--lz-gilt-400);              /* 7.39:1 on walnut-800 */
+  --lz-on-accent: var(--lz-walnut-900);         /* 8.09:1 on gilt-400 */
+  --lz-link: var(--lz-spine-oxblood);           /* 8.15:1 on paper */
+  --lz-danger: var(--lz-marker-deep);           /* 6.34:1 on paper */
+  --lz-crt: var(--lz-crt-glow);                 /* 11.93:1 on walnut-800 */
+  /* focus: a gilt ring with a walnut halo, so it reads on wood and on paper alike (SC 2.4.7, 1.4.11) */
+  --lz-focus: var(--lz-gilt-300);
+  --lz-focus-halo: var(--lz-walnut-900);
+
+  /* ---- type ---- */
+  --lz-font-title: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --lz-font-read: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --lz-font-crt: "Lucida Console", Monaco, "Courier New", ui-monospace, monospace;
+  --lz-text-xs: 12px;
+  --lz-text-sm: 14px;
+  --lz-text-md: 16px;
+  --lz-text-lg: 18px;
+  --lz-text-xl: 22px;
+  --lz-text-2xl: 28px;
+  --lz-text-3xl: 36px;
+  --lz-leading: 1.55;
+
+  /* ---- space, shape, depth ---- */
+  --lz-space-1: 4px;
+  --lz-space-2: 8px;
+  --lz-space-3: 12px;
+  --lz-space-4: 16px;
+  --lz-space-5: 24px;
+  --lz-space-6: 32px;
+  --lz-space-7: 48px;
+  --lz-radius-sm: 4px;
+  --lz-radius-md: 8px;
+  --lz-radius-lg: 14px;
+  --lz-radius-xl: 22px;
+  --lz-shadow-shelf: 0 10px 18px -10px rgba(0, 0, 0, 0.7);
+  --lz-shadow-paper: 0 24px 60px -28px rgba(0, 0, 0, 0.75);
+  --lz-lamp: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(232, 194, 122, 0.16), transparent 70%);
+
+  /* ---- motion ---- */
+  --lz-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --lz-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --lz-fast: 160ms;
+  --lz-base: 240ms;
+  --lz-page-turn: 420ms;
+  --lz-crossfade: 600ms;
+}
