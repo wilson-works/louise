@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+state/
+requests/
+louise.config.json
+dashboard/.pid
+dashboard/dashboard.log

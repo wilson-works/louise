@@ -1,0 +1,10 @@
+{
+  "name": "louise",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "description": "Louise the Librarian: a WilsonWorks research agent with the whole marathon-research pipeline and a library you can browse.",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node dashboard/server.js" }
+}
