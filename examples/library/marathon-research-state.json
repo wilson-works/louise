@@ -1,0 +1,45 @@
+{
+  "sessionId": "research-2026-10-02T08-30",
+  "status": "complete",
+  "paused": false,
+  "cronJobId": "",
+  "startedAt": "2026-10-02T13:30:00.000Z",
+  "hoursCap": 8,
+  "ramThresholdPct": 75,
+  "queue": [
+    { "slug": "choosing-a-used-e-bike", "title": "Choosing a used e-bike", "framing": "A 10 km commute with one long hill; a modest budget.", "source": "queueFile", "queuedAt": "2026-10-02T13:30:00.000Z" },
+    { "slug": "small-shop-bookkeeping-software-compared", "title": "Small-shop bookkeeping software compared", "framing": "A one-person craft shop, about 40 sales a week. Compare kinds of tool, not named products.", "source": "queueFile", "queuedAt": "2026-10-02T13:30:00.000Z" },
+    { "slug": "a-quiet-home-office", "title": "A quiet home office", "framing": "A rented flat; video calls every day.", "source": "queueFile", "queuedAt": "2026-10-02T13:30:00.000Z" }
+  ],
+  "currentWave": 3,
+  "rotationIndex": 3,
+  "waves": [
+    {
+      "waveNumber": 1, "slug": "2026-10-02-choosing-a-used-e-bike", "title": "Choosing a used e-bike",
+      "startedAt": "2026-10-02T13:35:00.000Z", "completedAt": "2026-10-02T14:12:00.000Z", "status": "complete",
+      "scopeVerdict": "clear", "scopeReason": null, "filesProduced": ["01-overview.md", "02-deep-dive.md", "sources.md"],
+      "totalLines": 57, "sourcesCount": 7, "claimsValidated": 24, "claimsFlagged": 0,
+      "ramAtStartPct": 48, "ramAtEndPct": 52, "processesKilled": []
+    },
+    {
+      "waveNumber": 2, "slug": "2026-10-02-small-shop-bookkeeping-software-compared", "title": "Small-shop bookkeeping software compared",
+      "startedAt": "2026-10-02T14:16:00.000Z", "completedAt": "2026-10-02T14:44:00.000Z", "status": "complete",
+      "scopeVerdict": "clear", "scopeReason": null, "filesProduced": ["01-overview.md", "sources.md"],
+      "totalLines": 29, "sourcesCount": 6, "claimsValidated": 15, "claimsFlagged": 0,
+      "ramAtStartPct": 51, "ramAtEndPct": 53, "processesKilled": []
+    },
+    {
+      "waveNumber": 3, "slug": "2026-10-02-a-quiet-home-office", "title": "A quiet home office",
+      "startedAt": "2026-10-02T14:48:00.000Z", "completedAt": "2026-10-02T15:09:00.000Z", "status": "failed-validation",
+      "scopeVerdict": "clear", "scopeReason": null, "filesProduced": ["01-overview.md", "sources.md"],
+      "totalLines": 24, "sourcesCount": 5, "claimsValidated": 11, "claimsFlagged": 1,
+      "ramAtStartPct": 52, "ramAtEndPct": 52, "processesKilled": []
+    }
+  ],
+  "totals": {
+    "topicsCompleted": 2,
+    "topicsFailed": 1,
+    "filesWritten": 7,
+    "sourcesCollected": 18
+  }
+}
