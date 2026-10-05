@@ -478,6 +478,7 @@ dialog.book[open] { animation: lz-book-in var(--lz-page-turn) var(--lz-ease-out)
   main { padding: 0 var(--lz-space-3) var(--lz-space-6); gap: var(--lz-space-5); }
   .desk { padding: var(--lz-space-3); border-radius: var(--lz-radius-lg); gap: var(--lz-space-4); }
   .caption-line { font-size: var(--lz-text-lg); }
+  .flight { width: 10px; height: 32px; margin: -16px 0 0 -5px; }
   .desk-under { flex-wrap: wrap; justify-content: flex-end; }
   .desk-under .crt { flex: 1 1 100%; }
   .slip { padding: var(--lz-space-4) var(--lz-space-4) var(--lz-space-6); }
