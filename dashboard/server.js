@@ -39,7 +39,7 @@
  *   GET  /api/research                   { running, since, waiting, claude }: is a run of her list going, how many
  *                                        questions wait, is Claude Code here
  *   POST /api/research   {}              starts one run (engine/research.js): 202 { running: true }; 409 with
- *                                        { error, reason: empty | running | no-claude | no-library } when it cannot
+ *                                        { error, reason: empty | running | no-claude | no-library | no-skill } when it cannot
  *   POST /api/research/stop  {}          stops the run she recorded: { running: false }; 409 (reason not-running) when
  *                                        there is none. The body is never read for a pid.
  *   POST /api/feedback { q, book, helpful }  remembers whether the book she brought for q was the one you needed
@@ -48,8 +48,9 @@
  * An error is { "error": "<a plain sentence>" } with a 4xx status (and a "reason" for the research routes).
  *
  *   createServer(opts)   the server, not yet listening (the tests use it). opts { home, roots, phoneHost, port,
- *                        writeRoot, claude, launch }: writeRoot and claude as engine/config.js gives them; launch
- *                        replaces how a run is started (the tests pass a harmless fake)
+ *                        writeRoot, claude, launch, hub, homeDir }: writeRoot and claude as engine/config.js gives
+ *                        them; launch replaces how a run is started, hub and homeDir where her skills are copied from
+ *                        (the tests pass a harmless fake and temporary folders)
  */
 
 const fs = require('fs');
@@ -134,7 +135,7 @@ function createServer(opts) {
   const stateFile = stage.stageFile(home);
   const queueFile = requests.queueFile(home);
   const feedbackFile = feedback.feedbackFile(home);
-  const runOpts = { home, writeRoot: o.writeRoot || null, claude: o.claude || null, launch: o.launch };
+  const runOpts = { home, writeRoot: o.writeRoot || null, claude: o.claude || null, launch: o.launch, hub: o.hub, homeDir: o.homeDir };
   const hosts = new Set(['127.0.0.1', 'localhost']);
   if (o.phoneHost) hosts.add(String(o.phoneHost).toLowerCase());
   const dirs = { public: path.join(home, 'dashboard', 'public'), art: path.join(home, 'art'), brand: path.join(home, 'brand') };

@@ -85,6 +85,7 @@ A run started this way can do only what her runbook needs, and asks nobody:
 | Flag | Why |
 |---|---|
 | `-p "Louise, research my list."` | one session that ends when the runbook ends |
+| `--setting-sources project,local` | your own `~/.claude/settings.json` is not read, so your personal allow rules and hooks never widen what the run may do |
 | `--append-system-prompt` (fixed words) | tells the session the dashboard started it, so it never asks or waits (CLAUDE.md, "A run started from her dashboard") |
 | `--permission-mode acceptEdits` and `--add-dir <your library>` | it may write files only in her folder and in your library |
 | `--permission-prompts none` | anything else is refused at once, never left waiting for a person |
@@ -97,12 +98,15 @@ So a run can write her list, her `state/` data and your library, and it can exec
 her. It never gets `--dangerously-skip-permissions`, and it never runs a script it wrote. A page it reads on the web
 can still steer what it writes in your library, as with any research you do with AI: check the sources.
 
-**Your own allow rules also apply to a dashboard run.** The rules and hooks in your `~/.claude/settings.json` are
-added to the list above, as in any Claude Code session of yours, so a command you have allowed for yourself (for example
-`npm run` or `python -c`) is allowed in her run too. Claude Code's `--setting-sources project,local` would leave your
-settings out, but it also leaves out the skills in your `~/.claude/skills`, which her research needs, so she does not
-use it. If you want her runs held to the list above only, keep your personal allow list short. Her code and settings
-stay protected either way: the deny rules above win over any allow rule.
+**Your own Claude Code settings do not reach a dashboard run.** The run starts with
+`--setting-sources project,local`, so the allow rules and hooks in your `~/.claude/settings.json` are left out: a command
+you have allowed for yourself (for example `npm run` or `python -c`) is still refused in her run. Leaving your settings
+out also leaves out the skills in your `~/.claude/skills`, so just before each run she copies the skills her `agent.json`
+needs (marathon-research, marathon-research-council, distill, quick-research) into her own folder's `.claude/skills/`,
+from your Hub's `.claude/skills` or else `~/.claude/skills`. They load there as her project skills. The copy is
+git-ignored, refreshed when the original changes, never a link, and a run cannot write to it. If one of them is
+installed nowhere, she says so and doesn't start. Settings you keep in that file (an `env` block or an `apiKeyHelper`)
+don't reach the run either: sign in to Claude Code the usual way and the run uses that sign-in.
 
 The library folder is made when the run starts, if it isn't there yet. The run's output goes to
 `state/research.log`; its pid, with a heartbeat, to `state/research-run.json`.

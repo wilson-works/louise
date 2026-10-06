@@ -16,6 +16,12 @@
  *   the program in louise.config.json instead. A .js file runs with this Node; anything else runs as it is.
  *
  * The headless flags (ARGS), the narrowest set that lets her runbook run unattended:
+ *   --setting-sources project,local    the person's own ~/.claude/settings.json is not read, so their allow rules and
+ *                                      hooks do not widen this list (measured on 2.1.263: python -c and npm run, both
+ *                                      allowed in a user settings file, are refused). That also leaves out the skills
+ *                                      in ~/.claude/skills, so before each run engine/skills.js copies the skills her
+ *                                      agent.json requires into her folder's .claude/skills, where they load as project
+ *                                      skills; a run cannot write there.
  *   -p "Louise, research my list."     print mode: one session, no keyboard, ends when the runbook ends
  *   --append-system-prompt <fixed>     tells the session her dashboard started it, so CLAUDE.md's "A run started from
  *                                      her dashboard" rules apply (nobody to ask; the button was the yes)
@@ -37,14 +43,12 @@
  * Not given: --dangerously-skip-permissions, bypassPermissions, any bare Bash, Edit or Write rule, any other folder,
  * and no rule that runs a script the session could have written. A web page the run reads can still steer what it
  * writes in the library and which of these tools it calls.
- * The person's own Claude Code settings (~/.claude/settings.json: their allow rules and hooks) also apply, as in any
- * session of theirs. --setting-sources project,local would leave them out, but measured on 2.1.263 it also leaves out
- * the skills in ~/.claude/skills, which her runbook needs, so it is not used. README says so.
  *
  * The library folder is made before the run starts: --add-dir names a working folder only when it is there.
  *
  * Starting (start): refused when Claude Code is not found (409 no-claude), there is no library folder (409
- * no-library), her list is empty (409 empty) or a run is going (409 running). Otherwise it writes a job file and starts
+ * no-library), her list is empty (409 empty), a run is going (409 running) or a skill her runbook needs is installed
+ * nowhere (409 no-skill). Otherwise it copies her skills in (engine/skills.js), writes a job file and starts
  * engine/research-run.js detached, with no handle of the server's (on Windows through engine/detach.vbs and
  * WScript.Shell.Run, because a child started by Node inherits every inheritable handle, and a server whose output is
  * captured would be held open by it). The runner starts Claude Code with its output in state/research.log, keeps
@@ -60,7 +64,8 @@
  *   findClaude({ claude, env, platform, home })   { program, args, image, via } or null
  *   ALLOWED_SCRIPTS, DENY_EDIT                     the scripts a run may execute, the paths it may never write
  *   ARGS(home, library)                            the fixed arguments
- *   status(home, opts)  start(opts)  stop(opts)    opts { home, roots, writeRoot, claude, launch, now }
+ *   status(home, opts)  start(opts)  stop(opts)    opts { home, roots, writeRoot, claude, launch, hub, homeDir, now }
+ *                                                  (hub, homeDir: where skills.js looks, for tests)
  *   runFile(home), logFile(home)
  */
 
@@ -70,6 +75,8 @@ const path = require('path');
 const { spawn, execFileSync } = require('child_process');
 const requests = require('./requests');
 const stage = require('./stage');
+const skills = require('./skills');
+const { findHub } = require('./config');
 
 const PROMPT = 'Louise, research my list.';
 const SYSTEM_NOTE = "Louise's dashboard started this session. Nobody is at the keyboard and nobody can answer a question. " +
@@ -108,6 +115,7 @@ function ARGS(home, library) {
   return [
     '-p', PROMPT,
     '--append-system-prompt', SYSTEM_NOTE,
+    '--setting-sources', 'project,local',
     '--permission-mode', 'acceptEdits',
     '--permission-prompts', 'none',
     '--add-dir', library,
@@ -233,6 +241,10 @@ async function start(opts) {
   if (!o.writeRoot) throw refuse(409, 'no-library', 'I have no library folder yet. Name one in louise.config.json, then try again.');
   if (!requests.list(requests.queueFile(home)).length) throw refuse(409, 'empty', 'Nothing on my list yet.');
   if (current(home, true)) throw refuse(409, 'running', "I'm already working on my list.");
+  const have = skills.ensure({ home, hub: o.hub !== undefined ? o.hub : findHub(home), homeDir: o.homeDir });
+  if (have.missing.length) {
+    throw refuse(409, 'no-skill', `I need the ${have.missing[0]} skill installed to research. Install it in your Hub's .claude/skills or in ~/.claude/skills, then try again.`);
+  }
 
   const token = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
   const args = ARGS(home, o.writeRoot);

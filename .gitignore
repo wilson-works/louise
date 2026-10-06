@@ -9,3 +9,6 @@ dashboard/dashboard.log
 
 # written by a Claude Code hook some installs run (a stop guard), at the folder root
 stop-guard.jsonl
+
+# her skills, copied in from the Hub or ~/.claude/skills before each research run (engine/skills.js)
+.claude/skills/
