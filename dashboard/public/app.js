@@ -295,7 +295,7 @@
     const book = state.unseen.find((u) => u.id === id);
     state.seenNow.add(id); // a shelf read already on its way must not bring it back
     state.unseen = state.unseen.filter((u) => u.id !== id);
-    if (state.stage === 'presenting') {
+    if (state.stage === 'presenting' && id === state.presentId) {
       const hold = still() ? 1500 : SHELVE_MS;
       state.holdUntil = Date.now() + hold;
       showPresent(null);
@@ -554,7 +554,8 @@
     for (const ch of String(b.id)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
     btn.style.setProperty('--tone', ((hash % 5) * 0.04).toFixed(2));
     const kind = b.kind && b.kind !== 'topic' ? ui(`kind_${b.kind}`) : '';
-    btn.setAttribute('aria-label', [b.title, kind, statusText(b.status), dateText(b.date)].filter(Boolean).join(', '));
+    // In the order the flat rows show it (SC 2.5.3): the title, then the date, kind and status.
+    btn.setAttribute('aria-label', [b.title, dateText(b.date), kind, statusText(b.status)].filter(Boolean).join(', '));
     btn.title = b.title;
     const title = document.createElement('span');
     title.className = 'spine-title';
@@ -809,23 +810,23 @@
     if (motion && dir < 0) leaf.animate([{ transform: 'rotateY(-88deg)', opacity: 0.4 }, { transform: 'rotateY(0deg)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
   }
 
-  // Wide tables and code scroll sideways inside their own box, never the page; each box can take keyboard focus so it
-  // can be scrolled without a mouse (SC 2.1.1).
+  // Wide tables and code scroll sideways inside their own box, never the page. A box that does scroll can take keyboard
+  // focus, so it can be scrolled without a mouse (SC 2.1.1); one that fits adds no tab stop.
   function roomy(body) {
+    const scrolls = (el, label) => {
+      if (el.scrollWidth <= el.clientWidth + 1) return;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'region');
+      el.setAttribute('aria-label', label);
+    };
     body.querySelectorAll('table').forEach((t) => {
       const box = document.createElement('div');
       box.className = 'md-table';
-      box.tabIndex = 0;
-      box.setAttribute('role', 'region');
-      box.setAttribute('aria-label', ui('tableBox'));
       t.replaceWith(box);
       box.append(t);
+      scrolls(box, ui('tableBox'));
     });
-    body.querySelectorAll('pre').forEach((pre) => {
-      pre.tabIndex = 0;
-      pre.setAttribute('role', 'region');
-      pre.setAttribute('aria-label', ui('codeBox'));
-    });
+    body.querySelectorAll('pre').forEach((pre) => scrolls(pre, ui('codeBox')));
   }
 
   // In the one-line row of page names (narrow screens), keep the current page's name in view.
@@ -956,8 +957,8 @@
     wire();
     await loadCopy();
     renderResearch(null);
+    await loadLibrary(); // first, so a waiting book is known before her first caption is read out
     pollStage();
-    loadLibrary();
     loadQueue();
   }
 
