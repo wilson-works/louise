@@ -117,7 +117,7 @@ brings the book, and it opens.
 | `POST /api/request` `{ "topic", "framing" }` | appended to `requests/queue.md` in marathon-research's queue format; `{ "queued": n }` |
 | `GET /api/requests` | `{ "requests": [{ "topic", "framing", "at" }] }` |
 | `GET /api/research` | `{ "running", "since", "waiting", "claude" }`: is a run of her list going, how many questions wait, is Claude Code here |
-| `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library" }` |
+| `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library\|no-skill" }; before it starts, the skills her `agent.json` requires are copied into her `.claude/skills/` (`engine/skills.js`), and the run leaves the user's own settings out (`--setting-sources project,local`)` |
 | `POST /api/research/stop` `{}` | stops the run she recorded, and only it; her stage goes to `idle`; `409` (`not-running`) when there is none |
 | `POST /api/feedback` `{ "q", "book", "helpful" }` | remembers whether the book she brought for `q` was the one you needed, in `state/feedback.jsonl`; `{ "remembered": n }` |
 
