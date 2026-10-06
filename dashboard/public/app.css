@@ -565,7 +565,7 @@ dialog.book.is-asked .book-spread { height: min(700px, calc(100dvh - 250px)); }
   .leaf { padding: var(--lz-space-4) var(--lz-space-4) 0; }
   .md { font-size: 17px; line-height: 1.6; padding-right: 0; }
   /* The whole book scrolls as one, so the page you are reading gets the screen; Previous and Next stay below it. */
-  .book-spread { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .book-spread { display: block; overflow-y: auto; overscroll-behavior: contain; background: var(--lz-paper); }
   .page-left, .page-right, .leaf { overflow: visible; }
   .leaf { min-height: 0; }
   .md { flex: none; overflow: visible; max-width: none; margin: 0 -6px; padding: 2px 6px; } /* its focus ring clears the letters */
