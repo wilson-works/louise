@@ -1,5 +1,5 @@
-// tests/scenes.test.js: her six desk scenes (art/<stage>.svg), the shelving flight's hook, and the runbook lines that
-// keep her screen strip moving.
+// tests/scenes.test.js: her seven desk scenes (art/<stage>.svg; presenting is shown by the page, never a stage), the
+// shelving flight's hook, and the runbook lines that keep her screen strip moving.
 // Contract under test (art/README.md, "Naming and scoping"; SPEC.md, "The scenes"):
 // - each scene is one 640 by 400 SVG with root id lz-<stage>, class lz-scene, role img and its own <title>; every id,
 //   CSS rule and keyframe is scoped to the scene; it stops all motion for reduced motion; it carries no script, image,
@@ -19,7 +19,7 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
-const PREFIX = { researching: 'lz-res-', council: 'lz-cou-', distill: 'lz-dis-', shelving: 'lz-shl-', fetching: 'lz-fet-', idle: 'lz-idl-' };
+const PREFIX = { researching: 'lz-res-', council: 'lz-cou-', distill: 'lz-dis-', shelving: 'lz-shl-', fetching: 'lz-fet-', idle: 'lz-idl-', presenting: 'lz-pre-' };
 
 // The CSS of a scene with its @keyframes blocks taken out, and the keyframe names.
 function cssParts(style) {
@@ -89,6 +89,15 @@ test("the page's flight starts from the new book, never from a cart", () => {
   assert.match(app, /dataset\.loopMs/);
   assert.match(app, /dataset\.placedMs/);
   assert.match(read('dashboard/public/index.html'), /<script src="crt\.js" defer><\/script>\s*<script src="app\.js" defer><\/script>/, 'crt.js loads before app.js');
+});
+
+test('presenting: she holds the new book out; the shelving flight never starts from it', () => {
+  const svg = read('art/presenting.svg');
+  assert.match((/<title[^>]*>([^<]+)<\/title>/.exec(svg) || [])[1], /book/i);
+  assert.doesNotMatch(svg, /id="[^"]*-newbook"/, 'only the shelving scene launches flights');
+  const app = read('dashboard/public/app.js');
+  assert.match(app, /'presenting'/, 'the page shows it');
+  assert.match(app, /\/api\/seen/, 'and tells the server when the book was closed the first time');
 });
 
 test('idle and council are different pictures', () => {

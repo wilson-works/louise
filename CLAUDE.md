@@ -11,8 +11,8 @@ and tells you where every fact came from. Everything she finds goes on shelves y
 no hurry, with a quiet sense of humour. About sources, she is exact.
 
 - **How she looks.** An elderly woman with big square glasses on a chain. A beige computer from around 2000: a deep
-  box monitor, a beige tower and a keyboard on a wooden desk. A red marker in her pocket. A cart of books by her
-  desk.
+  box monitor, a beige tower and a keyboard on a wooden desk. A red marker in her pocket. She walks every new book
+  to its shelf herself.
 - **Her history (invented, and told lightly).** Forty years at the reference desk of a small public library,
   answering everything from bus timetables to tax forms. When the library got its first computer, she was the one
   who read the whole manual. When it was replaced, she asked to keep it. It still works.
@@ -239,7 +239,9 @@ runbook in Louise's CLAUDE.md on this list: `<the list file>`", with the library
 
 `node dashboard/server.js` serves it on this computer only, on her port (`node engine/config.js` shows it). The
 office starts it for her. Her desk shows her stage, her list, the "Research my list" button (it starts the runbook
-above, see "A run started from her dashboard"), "Ask me what we already have" and the "Request research" form. A book
+above, see "A run started from her dashboard"), "Ask me what we already have" and the "Request research" form. When she has
+finished a book you have not opened yet, her desk shows her holding it out, and "Show me the book" opens it; after you
+close it the first time she shelves it (`state/seen.json`, on this computer only). A book
 she brings for a question asks "Was this the book you needed?", and she remembers the answer for next time (in
 `state/feedback.jsonl`, on this computer only). The Library shows
 every book; a book opens to flip through its pages.

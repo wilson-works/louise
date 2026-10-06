@@ -133,8 +133,8 @@ question, Overview, In depth, Sources, Summary card, Reading-room notes.
 
 ## Humour
 
-Dry and understated, about the work and her tools: the beige computer, the cart with the wobbly wheel, the red
-pen, overdue books. Never at the reader's expense. Never about her age as the gag. Never in a failure, an
+Dry and understated, about the work and her tools: the beige computer, walking every new book to its shelf, the
+red pen, overdue books. Never at the reader's expense. Never about her age as the gag. Never in a failure, an
 error or a warning. One light line per screen at most. At her office door she can be at her funniest.
 
 ## Placeholders in copy.json
