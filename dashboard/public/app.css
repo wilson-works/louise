@@ -503,7 +503,15 @@ dialog.book.is-asked .book-spread { height: min(700px, calc(100dvh - 250px)); }
 .md hr { border: 0; height: 1px; background: rgba(110, 86, 66, 0.4); margin: 1.6em 0; }
 .md-table { overflow-x: auto; }
 .md { overflow-wrap: break-word; }
-.md-table { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border-radius: 4px; }
+.md-table {
+  max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border-radius: 4px;
+  /* Shadows at an edge that has more table past it: they scroll away when you reach the end. */
+  background:
+    linear-gradient(90deg, var(--lz-paper) 30%, rgba(245, 236, 215, 0)) left / 24px 100% no-repeat local,
+    linear-gradient(270deg, var(--lz-paper) 30%, rgba(245, 236, 215, 0)) right / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(42, 29, 20, 0.28), transparent) left / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(42, 29, 20, 0.28), transparent) right / 12px 100% no-repeat scroll;
+}
 .md-table:focus-visible, .md pre:focus-visible { outline-offset: 1px; }
 .md table { border-collapse: collapse; font-size: var(--lz-text-sm); min-width: 60%; }
 .md th, .md td { padding: 6px 12px; border-bottom: 1px solid rgba(110, 86, 66, 0.3); text-align: left; vertical-align: top; }
@@ -560,7 +568,7 @@ dialog.book.is-asked .book-spread { height: min(700px, calc(100dvh - 250px)); }
   .book-spread { display: block; overflow-y: auto; overscroll-behavior: contain; }
   .page-left, .page-right, .leaf { overflow: visible; }
   .leaf { min-height: 0; }
-  .md { flex: none; overflow: visible; max-width: none; margin: 0; padding: 0; }
+  .md { flex: none; overflow: visible; max-width: none; margin: 0 -6px; padding: 2px 6px; } /* its focus ring clears the letters */
   .book-title { font-size: var(--lz-text-lg); }
   .book-bar .btn { flex: 1; padding: 0 var(--lz-space-3); }
 }
