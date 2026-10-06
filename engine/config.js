@@ -20,8 +20,11 @@
  * Her port: "port" in louise.config.json, else probe.port in her agent.json (install-agent rewrites it when 7540 is
  * taken), else 7540.
  *
+ * Claude Code, for a research run started from her dashboard (engine/research.js): "claude" in louise.config.json, the
+ * path to the program (~ and relative paths as for a root). Without it, research.js looks for claude on the PATH.
+ *
  *   load(opts)  { home, port, roots: [{ label, path, council, state, example }], writeRoot, source, hub,
- *                 phoneHost, file, notes }   opts { home } (default: her folder). Throws, in plain words, when
+ *                 phoneHost, claude, file, notes }   opts { home } (default: her folder). Throws, in plain words, when
  *                 louise.config.json is there but cannot be used: a broken config is fixed, never skipped past.
  *   CLI         node engine/config.js         the roots, where new research goes, and the port
  *               node engine/config.js where   only the folder new research goes to (nothing when there is none)
@@ -151,7 +154,14 @@ function load(opts) {
     if (!phoneHost) throw new Error(`"phone" in ${CONFIG_FILE} must be an address, for example https://desk.example-tailnet.ts.net:8444/.`);
   }
 
-  return { home, port, roots, writeRoot, source, hub, phoneHost, file, notes };
+  // Claude Code for a run started from her dashboard: "claude" in louise.config.json, else found on the PATH later.
+  let claude = null;
+  if (cfg && cfg.claude != null) {
+    if (typeof cfg.claude !== 'string' || !cfg.claude.trim()) throw new Error(`"claude" in ${CONFIG_FILE} must be the path to Claude Code, for example "~/.local/bin/claude".`);
+    claude = expand(cfg.claude, home, hub);
+  }
+
+  return { home, port, roots, writeRoot, source, hub, phoneHost, claude, file, notes };
 }
 
 module.exports = { load, findHub, expand, DEFAULT_PORT, CONFIG_FILE, HOME };

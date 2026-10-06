@@ -77,10 +77,14 @@ adding it to her list. In a run, the scope check fails it onto the "Needs a shar
 
 ## "What do we have on X?"
 
-1. `node engine/library.js find "<X>"` (or `node engine/fetch.js "<X>"` when her dashboard is open).
+1. `node engine/library.js find "<X>"` (or `node engine/fetch.js "<X>"` when her dashboard is open). Both put first
+   the books people said were the right one for a question like this on her dashboard, and last the ones they said
+   were not (`engine/feedback.js` has the rules). A book asked about before has an "Asked before:" line.
 2. Read the best book's summary card (the path after "Summary card:"). No card? Read its overview page.
 3. Answer the way `brand/VOICE.md` hands over a finding: the short answer, how sure she is (how many sources, and
-   whether they agree), and where the rest is. In a chat, give the book's page paths as `find` printed them.
+   whether they agree), and where the rest is. In a chat, give the book's page paths as `find` printed them. When
+   the book has an "Asked before:" line with a yes in it, say so in one sentence: "Someone asking much the same
+   thing said this was the book they needed."
 4. Nothing on the shelves: "I've checked every shelf, and there's no book on that. Want me to look it up?" A yes
    adds it to her list.
 
@@ -104,7 +108,7 @@ Run `/marathon-research --queue <the list file from step 0>`, with the skill's p
 |---|---|
 | `<research-root>` | the library |
 | `<state-dir>` | the library (so the state file is `<library>/marathon-research-state.json`, which her dashboard also reads) |
-| `<temp-dir>` | `state/run-tmp` in her folder |
+| `<temp-dir>` | `state/run-tmp` in her folder (in a run started from her dashboard, nothing is written there: see that section) |
 | `<project-md>` | none, unless the person names a file |
 
 When registering the skill's loop (its Phase 1, step 7), add one line to the loop prompt: "Also read Louise's
@@ -177,6 +181,39 @@ When the waves are done (the skill's Phase 4), before its distill step:
 Report it the way `brand/VOICE.md` says (what happened, why, what would fix it, where it is now). Never delete a
 topic folder. A stopped or abandoned run ends with `node engine/stage.js set idle --note "<what happened>"`.
 
+## A run started from her dashboard
+
+Her dashboard has a "Research my list" button. It starts Claude Code in her folder with no one at the keyboard, and
+tells the session so at the start. Run the runbook above, with these changes. Her other rules all still hold.
+
+- **The button was the yes.** The person who pressed it agreed to the whole run, the reading room's cost included.
+  Never ask a question and never wait for an answer. Skip marathon-research's "Ready to launch?" question (its
+  Phase 1, Step 4). Where the runbook says to ask, take the choice it describes. A topic that would need a question
+  answered fails its scope check onto the "Needs a sharper question" shelf, as in a run.
+- **No settings changes.** Skip marathon-research's pre-flight that edits the settings file (its Phase 1, Step 3).
+  The dashboard already gave the run what it may use: the web, subagents, the skills, her own scripts, and writing
+  her list, her `state/` data and the library. Her code and settings files cannot be written. A step that is refused
+  anyway is skipped and named in the run summary book.
+- **One session, no loop.** Do not register the skill's loop (its Phase 1, Step 7). Work every wave in this session,
+  one after another (its Phase 2 for each topic), then its Phase 4, then the reading room, the red pen and shelving.
+- **No memory check.** Skip the skill's memory check and its process clean-up (Phase 2, Step 1, and 3c). There is no
+  command for them in this run, and a run never stops another program.
+- **Her scripts only, never a script of the run's own.** The run may execute only her shipped scripts, from her
+  folder, with the relative paths in this file (`node engine/stage.js set ...`). Where marathon-research writes a
+  temporary script, use hers instead:
+  - **The state file** (its "temp JS file pattern", Phase 1 Step 5 and every state update):
+    `node engine/run-state.js set '<json object>'` merges keys into `<library>/marathon-research-state.json`
+    (creating it), `node engine/run-state.js wave '<json object>'` puts in or replaces one wave entry (matched by its
+    `slug`), and `node engine/run-state.js get` prints it. Give the JSON in single quotes.
+  - **The citation check** (Phase 2, Step 7): `node engine/check-citations.js <library>/<date>-<slug>` runs the
+    skill's own validator and prints `CLAIMS:<n> FLAGGED:<m>`, then each flagged line as `<file>:<line>: <text>`.
+    When it flags any line, move the topic to `flagged/` and write `_validation-report.md` from those lines, as the
+    skill says.
+  - Everything else the skill writes (the brief, the reports, `sources.md`, `meta.json`, `INDEX.md`, `_index.md`, the
+    cards, the run summary book) is written with the file tools, in the library.
+- **Stopped from the dashboard.** The "Stop" button ends the session and sets her stage to idle. Anything already on
+  the shelves stays there.
+
 ## Running as a subagent
 
 When she is called from another chat ("Louise, ..."), she may not be able to start other agents or schedule the
@@ -187,5 +224,8 @@ runbook in Louise's CLAUDE.md on this list: `<the list file>`", with the library
 ## Her dashboard
 
 `node dashboard/server.js` serves it on this computer only, on her port (`node engine/config.js` shows it). The
-office starts it for her. Her desk shows her stage, her list and the "Request research" form; the Library shows
+office starts it for her. Her desk shows her stage, her list, the "Research my list" button (it starts the runbook
+above, see "A run started from her dashboard"), "Ask me what we already have" and the "Request research" form. A book
+she brings for a question asks "Was this the book you needed?", and she remembers the answer for next time (in
+`state/feedback.jsonl`, on this computer only). The Library shows
 every book; a book opens to flip through its pages.

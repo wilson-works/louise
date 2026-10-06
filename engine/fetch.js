@@ -4,8 +4,11 @@
  * engine/fetch.js — "Louise, fetch me ...": find the best book for a question and send her to the shelf for it.
  * Node built-ins only.
  *
- *   fetchBook(q, { roots, stateFile, now })   { book: "<id>" or null, matches: [ids] }. The stage goes to fetching
+ *   fetchBook(q, { roots, stateFile, feedbackFile, now })
+ *                                             { book: "<id>" or null, matches: [ids] }. The stage goes to fetching
  *                                             for about six seconds (engine/stage.js), carrying the book she brings.
+ *                                             With feedbackFile, what people said about books for similar questions
+ *                                             orders them (engine/feedback.js).
  *
  * CLI (from her folder):  node engine/fetch.js "<question>"
  *   Prints the book she brought back (its summary card first, then its pages, as file paths) and, when her dashboard
@@ -14,6 +17,7 @@
 
 const library = require('./library');
 const stage = require('./stage');
+const feedback = require('./feedback');
 
 const Q_MAX = 200;
 
@@ -23,7 +27,8 @@ function fetchBook(q, opts) {
   if (!question) throw Object.assign(new Error('Tell Louise what to fetch.'), { status: 400 });
   if (question.length > Q_MAX) throw Object.assign(new Error(`That is a long one. Ask in ${Q_MAX} characters or fewer.`), { status: 400 });
   const index = library.get(o.roots);
-  const hits = library.find(index, question).slice(0, 10);
+  const answers = o.feedbackFile ? feedback.read(o.feedbackFile) : [];
+  const hits = library.find(index, question, { feedback: answers }).slice(0, 10);
   const top = hits[0] ? hits[0].book : null;
   stage.startFetch(o.stateFile, {
     q: question, book: top ? top.id : null, title: top ? top.title : question,
@@ -41,7 +46,7 @@ if (require.main === module) {
   let cfg;
   try { cfg = config.load(); } catch (e) { out(e.message); process.exit(1); }
   let res;
-  try { res = fetchBook(q, { roots: cfg.roots, stateFile: stage.stageFile(cfg.home) }); } catch (e) { out(e.message); process.exit(2); }
+  try { res = fetchBook(q, { roots: cfg.roots, stateFile: stage.stageFile(cfg.home), feedbackFile: feedback.feedbackFile(cfg.home) }); } catch (e) { out(e.message); process.exit(2); }
   if (!res.book) { out(`Nothing on the shelves for "${q}". Louise can research it: node engine/requests.js add "${q}"`); process.exit(1); }
   const index = library.get(cfg.roots);
   const b = index.byId.get(res.book);

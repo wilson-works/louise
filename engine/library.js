@@ -24,10 +24,13 @@
  *   shelves(index, {arrange,q}) { sections: [{ id, label, count }], books: [...] } for GET /api/library
  *   bookView(index, id)         { id, title, kind, status, date, run, pages: [{ n, name, file }] } or null
  *   readPage(index, id, n)      { n, name, markdown }; throws an error with .status 404, 403 or 413
- *   find(index, q)              [{ book, score }], best first
+ *   find(index, q, { feedback }) [{ book, score, yes, no, net }], best first. feedback: the answers from
+ *                               engine/feedback.js; books confirmed for a similar question come first, books turned
+ *                               down for one come last (the rules are in feedback.js)
  *
  * CLI (from her folder):
- *   node engine/library.js find "<question>"            the best matching books, with their summary cards and pages
+ *   node engine/library.js find "<question>"            the best matching books, with their summary cards and pages,
+ *                                                       and what people said before about each for a question like it
  *   node engine/library.js list [--arrange topic|run|month|status] [--q <words>]
  *   Add --json to either for the raw answer.
  */
@@ -35,6 +38,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const feedback = require('./feedback');
 
 const PAGE_CAP = 512 * 1024;
 const SMALL_READ = 64 * 1024;
@@ -460,12 +464,17 @@ function readPage(index, id, n) {
   return { n: num, name: p.name, kind: p.kind, markdown: frontMatter(text).body };
 }
 
-/** Books that answer a question, best first: words in the title count most, then the folder name, then the text. */
-function find(index, q) {
+/**
+ * Books that answer a question, best first: words in the title count most, then the folder name, then the text. With
+ * opts.feedback, what people said about books for similar questions comes first (engine/feedback.js).
+ */
+function find(index, q, opts) {
   const qw = queryWords(q);
-  if (!qw.length) return [];
+  const marks = opts && opts.feedback ? feedback.tally(opts.feedback, q) : new Map();
+  if (!qw.length && !marks.size) return [];
   const out = [];
   for (const b of index.books) {
+    const m = marks.get(b.id) || { yes: 0, no: 0, net: 0 };
     const title = b.title.toLowerCase();
     const slug = b.slug.toLowerCase();
     const text = String(b.text || '').toLowerCase();
@@ -477,11 +486,13 @@ function find(index, q) {
       if (s) hits += 1;
       score += s;
     }
-    if (!hits) continue;
-    score = score * (hits / qw.length) + (b.kind === 'topic' ? 0.5 : 0) + (b.status === 'finished' ? 0.25 : 0);
-    out.push({ book: b, score });
+    if (!hits && m.net <= 0) continue;
+    score = (qw.length ? score * (hits / qw.length) : 0) + (b.kind === 'topic' ? 0.5 : 0) + (b.status === 'finished' ? 0.25 : 0);
+    out.push({ book: b, score, yes: m.yes, no: m.no, net: m.net });
   }
-  return out.sort((a, b) => b.score - a.score || String(b.book.date || '').localeCompare(String(a.book.date || '')));
+  const tier = (h) => Math.sign(h.net);
+  return out.sort((a, b) => tier(b) - tier(a) || (tier(a) > 0 ? b.net - a.net : 0) || b.score - a.score
+    || String(b.book.date || '').localeCompare(String(a.book.date || '')));
 }
 
 module.exports = {
@@ -505,12 +516,13 @@ if (require.main === module) {
   if (cmd === 'find') {
     const q = argv.slice(1).filter((a) => !a.startsWith('--')).join(' ');
     if (!q.trim()) { out('Say what to look for: node engine/library.js find "frost dates"'); process.exit(2); }
-    const hits = find(index, q).slice(0, 5);
-    if (json) { out(JSON.stringify(hits.map((h) => Object.assign(bookView(index, h.book.id), { score: h.score, root: h.book.rootPath })), null, 2)); process.exit(0); }
+    const hits = find(index, q, { feedback: feedback.read(feedback.feedbackFile(cfg.home)) }).slice(0, 5);
+    if (json) { out(JSON.stringify(hits.map((h) => Object.assign(bookView(index, h.book.id), { score: h.score, yes: h.yes, no: h.no, root: h.book.rootPath })), null, 2)); process.exit(0); }
     if (!hits.length) { out(`Nothing on the shelves for "${q}". Louise can research it: add it to her queue.`); process.exit(1); }
     hits.forEach((h, i) => {
       const b = h.book;
       out(`${i + 1}. ${b.title}  [${b.kind}, ${STATUS_LABEL[b.status].toLowerCase()}${b.date ? `, ${b.date}` : ''}${b.run ? `, run ${b.run}` : ''}]  id ${b.id}`);
+      if (h.yes || h.no) out(`   Asked before: for a question like this, ${h.yes} said it was the book they needed and ${h.no} said it was not.`);
       const card = b.pages.find((p) => p.kind === 'card');
       if (card) out(`   Summary card: ${card.file}`);
       for (const p of b.pages.filter((x) => x !== card)) out(`   ${p.name}: ${p.file}`);

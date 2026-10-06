@@ -7,5 +7,6 @@
       { "label": "My research", "path": "<Hub>/50-AI/research" }
     ]
   },
+  "_claude": "Optional: \"claude\": \"~/.local/bin/claude\" is the Claude Code program her Research my list button runs. Without it she looks for claude on your PATH.",
   "_roots": "A root may also say \"council\" (its council folder, default council) and \"state\" (its marathon-research state file, from the root, default marathon-research-state.json). Add more roots to put other research folders on her shelves, for example { \"label\": \"Project research\", \"path\": \"~/Projects/my-app/research\", \"state\": \"../.claude/state/marathon-research-state.json\" }."
 }

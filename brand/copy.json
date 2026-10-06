@@ -113,7 +113,51 @@
       "Got it. It's on my list.",
       "Noted. I'll look it up when you set me to work."
     ],
-    "howToStart": "I start when you ask. In a chat on your Hub, say: \"Louise, research my list.\""
+    "howToStart": "Start me with \"Research my list\" below, or say \"Louise, research my list.\" in a chat on your Hub."
+  },
+  "research": {
+    "_": "The buttons by her list that start and stop a research run from her dashboard. reasons are keyed by the server's reason codes.",
+    "start": "Research my list",
+    "stop": "Stop",
+    "started": [
+      "Off I go. Watch my desk to see where I've got to.",
+      "Starting on my list now. My desk shows each step."
+    ],
+    "stopped": "I've stopped. Anything I finished is on the shelves.",
+    "failed": "That didn't reach my desk. Is my dashboard still running?",
+    "reasons": {
+      "empty": "Nothing on my list yet. Add a question first.",
+      "running": "I'm already working on my list.",
+      "no-claude": "I need Claude Code on this computer to do research. Install it, then try again.",
+      "no-library": "I need a folder for my library first. Name one in louise.config.json.",
+      "not-running": "I'm not working on my list right now.",
+      "starting": "I'm only just starting. Try again in a moment.",
+      "not-started": "I couldn't start. The details are in my log, in state/research.log."
+    }
+  },
+  "deskAsk": {
+    "label": "Ask me what we already have",
+    "placeholder": "For example: when can I plant tomatoes?",
+    "submit": "Ask Louise"
+  },
+  "feedback": {
+    "_": "The bar in a book she opened for a question. tryAnother shows before the next match opens; outOfBooks when there is none left.",
+    "question": "Was this the book you needed?",
+    "yes": "Yes",
+    "no": "No",
+    "thanks": [
+      "Good. I'll remember that for questions like it.",
+      "Thank you. Next time I'll bring this one first."
+    ],
+    "tryAnother": [
+      "Let me try another shelf.",
+      "Not that one, then. Let me try another shelf."
+    ],
+    "outOfBooks": [
+      "That was the last book I have on it. Shall I look it up properly?",
+      "I've no other book on that. Shall I put it on my list to research?"
+    ],
+    "addToList": "Add it to my list"
   },
   "jokes": [
     "Shh. Oh, it's you. Come in, the library's open.",

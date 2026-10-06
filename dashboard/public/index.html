@@ -2,7 +2,9 @@
 <!--
   index.html: Louise's dashboard, one page in three parts (SPEC "The dashboard"): her desk (the scene for /api/stage, her
   caption, what she is working on, and the request form), the Library (shelves of books you can arrange and search, or ask
-  her to fetch from) and the open book (a dialog whose pages you flip). Every line she says comes from /brand/copy.json;
+  her to fetch from) and the open book (a dialog whose pages you flip). Her desk also has "Ask me what we already have"
+  (the same fetch as the Library's search, above the fold), "Research my list" and "Stop" by her list, and a book opened
+  by a question asks "Was this the book you needed?". Every line she says comes from /brand/copy.json;
   elements marked data-copy are filled from it by app.js. No build step, no framework, nothing loaded from elsewhere.
 -->
 <html lang="en">
@@ -57,6 +59,15 @@
         </div>
         <p class="desk-offline" id="desk-offline" role="status"></p>
 
+        <form class="ask" id="desk-ask-form" role="search" novalidate>
+          <label class="ask-label" for="desk-q" data-copy="deskAsk.label">Ask me what we already have</label>
+          <div class="search-row">
+            <input id="desk-q" name="q" type="search" maxlength="200" autocomplete="off" aria-describedby="desk-ask-status" data-copy-placeholder="deskAsk.placeholder">
+            <button type="submit" class="btn btn-gilt" id="desk-ask" data-copy="deskAsk.submit">Ask Louise</button>
+          </div>
+          <p class="ask-status" id="desk-ask-status" role="status"></p>
+        </form>
+
         <form class="slip" id="request-form" novalidate aria-labelledby="request-title">
           <h3 class="slip-title" id="request-title" data-copy="requests.title">Ask me to look something up</h3>
           <div class="field">
@@ -77,6 +88,14 @@
           <div class="queue" id="queue-wrap" hidden>
             <h4 class="queue-title" id="queue-title">On her list</h4>
             <ol class="queue-list" id="queue" aria-labelledby="queue-title"></ol>
+          </div>
+          <div class="runbar" id="runbar">
+            <div class="runbar-actions">
+              <button type="button" class="btn btn-ink" id="run-start" aria-describedby="run-note" data-copy="research.start">Research my list</button>
+              <button type="button" class="btn btn-line" id="run-stop" hidden data-copy="research.stop">Stop</button>
+            </div>
+            <p class="runbar-note" id="run-note"></p>
+            <p class="vh" id="run-live" role="status"></p>
           </div>
         </form>
       </div>
@@ -141,6 +160,15 @@
           </div>
           <p class="folio" id="folio" aria-live="polite"></p>
         </div>
+      </div>
+      <div class="verdict" id="verdict" hidden>
+        <p class="verdict-q" id="verdict-q" data-copy="feedback.question">Was this the book you needed?</p>
+        <div class="verdict-actions">
+          <button type="button" class="btn btn-verdict" id="verdict-yes" data-copy="feedback.yes">Yes</button>
+          <button type="button" class="btn btn-verdict" id="verdict-no" data-copy="feedback.no">No</button>
+          <button type="button" class="btn btn-verdict" id="verdict-add" hidden data-copy="feedback.addToList">Add it to my list</button>
+        </div>
+        <p class="verdict-said" id="verdict-said" role="status" tabindex="-1"></p>
       </div>
       <div class="book-bar">
         <button type="button" class="btn btn-quiet" id="book-prev">
