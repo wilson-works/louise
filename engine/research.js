@@ -108,7 +108,7 @@ function writeJson(file, obj) {
 const ALLOWED_SCRIPTS = ['config', 'requests', 'stage', 'library', 'fetch', 'run-state', 'check-citations'];
 // Paths in her folder a run may never write (relative to her folder, the run's working folder).
 const DENY_EDIT = ['engine/**', 'dashboard/**', 'CLAUDE.md', 'subagent.md', 'agent.json', 'package.json', '.claude/**',
-  '.git/**', '.gitignore', 'louise.config.json', 'state/run-tmp/**'];
+  '.git/**', '.gitignore', 'louise.config.json', 'state/run-tmp/**', 'CLAUDE.local.md', '.mcp.json'];
 
 /** The fixed arguments for a run. Only her library folder varies, and it comes from her own config. */
 function ARGS(home, library) {

@@ -220,7 +220,7 @@ test('the permission flags are exactly these (a literal list: widening any of th
     '--disallowedTools', 'AskUserQuestion', 'CronCreate',
     'Edit(engine/**)', 'Edit(dashboard/**)', 'Edit(CLAUDE.md)', 'Edit(subagent.md)', 'Edit(agent.json)',
     'Edit(package.json)', 'Edit(.claude/**)', 'Edit(.git/**)', 'Edit(.gitignore)', 'Edit(louise.config.json)',
-    'Edit(state/run-tmp/**)',
+    'Edit(state/run-tmp/**)', 'Edit(CLAUDE.local.md)', 'Edit(.mcp.json)',
   ]);
   const joined = args.join('\n');
   for (const never of ['run-tmp/*)', 'dangerously', 'bypassPermissions', 'Bash(node state', 'Bash(*', 'Bash)', '"']) {
