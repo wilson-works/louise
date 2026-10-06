@@ -5,8 +5,17 @@
 //   {topic} or {n} are used only when the page has that value. A few plain labels that are not her voice live in UI
 //   below; a "ui" block in copy.json overrides any of them by the same key.
 // - Her desk: polls GET /api/stage every 2 s. When the stage changes, the scene from /art/<stage>.svg crossfades in
-//   (inline, so the pause button can stop its motion), and a new caption is picked. While she is shelving, books fly
-//   from her cart to the shelves. The request form posts /api/request; her list comes from /api/requests.
+//   (inline, so the pause button can stop its motion), and a new caption is picked. The strip under the scene is her
+//   screen (crt.js makes its lines): READY at rest; in any other stage, what she is on (the topic, else her note), the
+//   step and how many minutes so far. While she is shelving, each time the new book she carries reaches its gap on the
+//   scene's bookcase, one book flies from there to the Library. The request form posts /api/request; her list comes
+//   from /api/requests.
+// - A new book waits for you: /api/library's unseen lists finished books not opened yet. At rest (stage idle) while one
+//   waits, the presenting scene shows her holding it out, and "Show me the book" opens it. Closing a waiting book the
+//   first time posts /api/seen; when she was holding it out, the shelving scene plays once, then she goes back to
+//   reading. The run's stages always come first.
+// - On a phone the shelves lay each book flat in a row (app.css), and in the open book wide tables and code get their
+//   own sideways-scrolling box, the page names one sideways row, and a turned page starts at its own top.
 // - The Library: GET /api/library?arrange=&q= draws one shelf per section with an indicator and its count. Typing in
 //   the search box narrows the shelves; "Ask Louise" posts /api/fetch, plays the fetching scene, then opens the book.
 //   Her desk has the same "Ask Louise" box ("Ask me what we already have"), above the fold.
@@ -27,6 +36,7 @@
   const STAGES = ['idle', 'researching', 'council', 'distill', 'shelving', 'fetching'];
   const SPINES = ['oxblood', 'green', 'navy', 'mustard', 'plum', 'teal', 'tan', 'slate', 'brown', 'olive'];
   const POLL_MS = 2000;
+  const SHELVE_MS = 7300; // one loop of the shelving scene (7.2 s), then she goes back to reading
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   // Plain labels that are not Louise's own lines.
@@ -34,6 +44,8 @@
     pause: 'Pause the scene',
     play: 'Play the scene',
     step: 'Step {n} of {of}',
+    minutes: '{m} min so far',
+    hours: '{h} h {m} min so far',
     ready: 'READY',
     offline: "Her desk can't be reached right now. The page keeps trying.",
     books: '{count} books',
@@ -51,6 +63,8 @@
     pageError: "This page couldn't be opened.",
     bookError: "That book couldn't be opened.",
     pageOf: 'Page {n} of {of}',
+    tableBox: 'Table, scrolls sideways',
+    codeBox: 'Code, scrolls sideways',
     date: 'Date',
     run: 'Run',
     status: 'Status',
@@ -69,6 +83,7 @@
     stage: null, stageKey: '', stageData: null, offline: 0, paused: false, holdUntil: 0, sceneToken: 0,
     arrange: 'topic', q: '', library: null, libToken: 0, highlight: new Set(), runTitles: new Map(),
     book: null, page: 0, pageToken: 0, opener: null, last: {}, asked: null, research: null,
+    unseen: [], seenNow: new Set(), presentId: null,
   };
 
   // ---------------------------------------------------------------- copy
@@ -214,48 +229,87 @@
     say($('caption'), pick(copy.stages && copy.stages[stage], vals, `stage-${stage}`), vals);
   }
 
+  // Her screen: live in every stage but idle, so a run never reads as READY (crt.js has the rules).
   function screen(s) {
     const crt = $('crt');
     crt.hidden = false;
-    const working = s.stage !== 'idle' && s.topic;
+    const v = LouiseCrt.lines(s, copy.stageNames, Date.now());
     const ct = $('crt-topic');
     ct.textContent = '';
-    if (working) {
+    if (!v.ready) {
       const prompt = document.createElement('span');
       prompt.setAttribute('aria-hidden', 'true');
       prompt.textContent = '> ';
-      ct.append(prompt, s.topic);
+      ct.append(prompt, v.head);
     } else ct.textContent = ui('ready');
-    const step = s.step && Number(s.step.n) > 0 && Number(s.step.of) > 0 ? s.step : null;
-    $('crt-step').textContent = working && step ? fmt(ui('step'), { n: step.n, of: step.of }) : '';
+    const m = v.minutes;
+    const since = m >= 60 ? fmt(ui('hours'), { h: Math.floor(m / 60), m: m % 60 }) : m >= 1 ? fmt(ui('minutes'), { m }) : '';
+    const step = v.step ? fmt(ui('step'), { n: v.step.n, of: v.step.of }) : '';
+    $('crt-step').textContent = [step, since].filter(Boolean).join(' · ');
     const dots = $('crt-dots');
     dots.textContent = '';
-    if (working && step && step.of <= 12) {
-      for (let i = 1; i <= step.of; i++) {
+    if (v.step && v.step.of <= 12) {
+      for (let i = 1; i <= v.step.of; i++) {
         const li = document.createElement('li');
-        li.className = i < step.n ? 'is-done' : i === Number(step.n) ? 'is-now' : '';
+        li.className = i < v.step.n ? 'is-done' : i === v.step.n ? 'is-now' : '';
         dots.append(li);
       }
     }
-    $('crt-note').textContent = working && s.note ? s.note : '';
+    $('crt-note').textContent = v.note;
   }
 
+  // At rest, a finished book the person has not opened yet makes her wait to show it (the presenting scene); the run's
+  // own stages always come first. The scene shown can be presenting, which is never a stage of hers.
   function applyStage(s) {
     const stage = STAGES.includes(s.stage) ? s.stage : 'idle';
     state.stageData = s;
     screen({ ...s, stage });
-    if (Date.now() < state.holdUntil) return; // a fetch the person asked for is playing
-    const key = stage === 'fetching' || stage === 'idle' ? `${stage}|` : `${stage}|${s.topic || ''}`;
-    if (stage !== state.stage) {
+    if (Date.now() < state.holdUntil) return; // a fetch, or her walk to the shelves, is playing
+    const waiting = stage === 'idle' ? state.unseen[0] || null : null;
+    const shown = waiting ? 'presenting' : stage;
+    const key = waiting ? `presenting|${waiting.id}` : stage === 'fetching' || stage === 'idle' ? `${stage}|` : `${stage}|${s.topic || ''}`;
+    if (shown !== state.stage) {
       const was = state.stage;
-      state.stage = stage;
-      showScene(stage);
-      onStageChange(stage, was);
+      state.stage = shown;
+      showScene(shown);
+      onStageChange(shown, was);
     }
     if (key !== state.stageKey) {
       state.stageKey = key;
-      caption(stage, { topic: s.topic || null });
+      caption(shown, { topic: waiting ? waiting.title : s.topic || null });
     }
+    showPresent(waiting);
+  }
+
+  let presentTimer = null;
+  function showPresent(book) {
+    state.presentId = book ? book.id : null;
+    $('present').hidden = !book;
+    // While she waits, the shelves are read again now and then: the book may have been opened on another screen.
+    if (book && !presentTimer) presentTimer = setTimeout(() => { presentTimer = null; loadLibrary(); }, 15000);
+  }
+
+  // The person closed a book for the first time: it is seen. When she was holding it out, she walks it to the shelves
+  // (the shelving scene, once), then goes back to reading or to the next new book.
+  function firstClose(id) {
+    const book = state.unseen.find((u) => u.id === id);
+    state.seenNow.add(id); // a shelf read already on its way must not bring it back
+    state.unseen = state.unseen.filter((u) => u.id !== id);
+    if (state.stage === 'presenting' && id === state.presentId) {
+      const hold = still() ? 1500 : SHELVE_MS;
+      state.holdUntil = Date.now() + hold;
+      showPresent(null);
+      const was = state.stage;
+      state.stage = 'shelving';
+      showScene('shelving');
+      onStageChange('shelving', was);
+      state.stageKey = 'shelving|seen';
+      caption('shelving', { topic: book ? book.title : null });
+      setTimeout(pollStageNow, hold + 50);
+    }
+    postJSON('/api/seen', { book: id })
+      .then((r) => { if (Array.isArray(r.unseen)) state.unseen = r.unseen.filter((u) => u && u.id && !state.seenNow.has(u.id)); })
+      .catch(() => { /* not kept this time: the book waits again on the next visit */ });
   }
 
   let stageTimer = null;
@@ -275,15 +329,42 @@
     }
   }
 
-  // ---------------------------------------------------------------- shelving: books travel from her cart to the shelves
+  // ---------------------------------------------------------------- shelving: the book she shelves goes to the Library
+  // The shelving scene marks the new book she carries (an id ending "-newbook") with data-loop-ms (the scene's loop) and
+  // data-placed-ms (when in that loop the book is in its gap on the bookcase). Each loop, at that moment, one book flies
+  // from there down to the Library. One book a loop, no more: calm.
   let flightTimer = null;
   let flightN = 0;
 
   function onStageChange(stage, was) {
-    clearInterval(flightTimer);
+    clearTimeout(flightTimer);
     flightTimer = null;
-    if (stage === 'shelving') { flightTimer = setInterval(flyBook, 1300); setTimeout(flyBook, 700); }
+    if (stage === 'shelving') flightTimer = setTimeout(nextFlight, 400); // the scene is still crossfading in
     if (was !== null) { loadLibrary(); loadQueue(); }
+    // A run that just ended may have shelved its last book a moment ago; the shelves are read again after their cache.
+    if (stage === 'idle' && was !== null && was !== 'presenting') setTimeout(loadLibrary, 6000);
+  }
+
+  const newBook = () => $('scene').querySelector('.scene-layer.is-in [id$="-newbook"]');
+
+  // Ms until the new book is next in its gap, read from the scene's own running animation; null when it cannot be read.
+  function untilPlaced() {
+    const book = newBook();
+    const loop = book ? Number(book.dataset.loopMs) : NaN;
+    const placed = book ? Number(book.dataset.placedMs) : NaN;
+    const svg = book && book.ownerSVGElement;
+    if (!(loop > 0) || !(placed >= 0) || !svg || !svg.getAnimations) return null;
+    const anim = svg.getAnimations({ subtree: true }).find((a) => a.effect && Math.abs(Number(a.effect.getTiming().duration) - loop) < 1);
+    if (!anim || anim.currentTime == null) return null;
+    const t = Number(anim.currentTime) % loop;
+    return (((placed - t) % loop) + loop) % loop;
+  }
+
+  function nextFlight() {
+    clearTimeout(flightTimer);
+    const wait = still() || document.hidden ? null : untilPlaced();
+    if (wait == null) { flightTimer = setTimeout(nextFlight, 1000); return; } // still, hidden or not drawn yet: look again soon
+    flightTimer = setTimeout(() => { flyBook(); flightTimer = setTimeout(nextFlight, 500); }, wait);
   }
 
   function flightTarget() {
@@ -296,19 +377,19 @@
   }
 
   function flyBook() {
-    if (still() || document.hidden) return;
-    const scene = $('scene');
-    const cart = scene.querySelector('.scene-layer.is-in [id$="-cart"]');
-    const a = (cart || scene).getBoundingClientRect();
+    const book = newBook();
+    if (still() || document.hidden || !book) return;
+    const a = book.getBoundingClientRect();
+    const s = $('scene').getBoundingClientRect();
     const b = flightTarget();
-    const x0 = a.left + a.width * (cart ? 0.5 : 0.7);
-    const y0 = a.top + a.height * (cart ? 0.3 : 0.6);
+    const x0 = a.left + a.width * 0.5;
+    const y0 = a.top + a.height * 0.5;
     const x1 = b.left + 24 + Math.random() * Math.max(0, b.width - 72);
     const y1 = Math.min(Math.max(b.top + b.height * 0.4, 24), window.innerHeight - 48);
     const el = document.createElement('div');
     el.className = `flight spine-${SPINES[flightN++ % SPINES.length]}`;
     $('flights').append(el);
-    const arc = Math.min(y0, y1) - Math.min(80, a.height * 0.45); // a small toss on a phone, not a lob across her face
+    const arc = Math.min(y0, y1) - Math.min(80, s.height * 0.14); // a small toss on a phone, not a lob across the room
     el.animate([
       { transform: `translate(${x0}px, ${y0}px) rotate(-10deg) scale(0.6)`, opacity: 0 },
       { transform: `translate(${x0 + (x1 - x0) * 0.15}px, ${y0 - 40}px) rotate(-4deg) scale(0.8)`, opacity: 1, offset: 0.18 },
@@ -442,7 +523,9 @@
       state.library.books.forEach((b) => { if (b.kind === 'run-summary' && b.run) state.runTitles.set(b.run, b.title); });
       $('library-examples').textContent = ui('examples');
       $('library-examples').hidden = data.examples !== true;
+      state.unseen = Array.isArray(data.unseen) ? data.unseen.filter((u) => u && u.id && !state.seenNow.has(u.id)) : [];
       renderLibrary();
+      if (state.stageData) applyStage(state.stageData); // a new book may be waiting now
     } catch (e) {
       if (token !== state.libToken) return;
       if (!state.library) shelves.innerHTML = `<p class="shelves-note is-error">${LouiseMd.escape(ui('libraryError'))}</p>`;
@@ -471,12 +554,18 @@
     for (const ch of String(b.id)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
     btn.style.setProperty('--tone', ((hash % 5) * 0.04).toFixed(2));
     const kind = b.kind && b.kind !== 'topic' ? ui(`kind_${b.kind}`) : '';
-    btn.setAttribute('aria-label', [b.title, kind, statusText(b.status), dateText(b.date)].filter(Boolean).join(', '));
+    // In the order the flat rows show it (SC 2.5.3): the title, then the date, kind and status.
+    btn.setAttribute('aria-label', [b.title, dateText(b.date), kind, statusText(b.status)].filter(Boolean).join(', '));
     btn.title = b.title;
     const title = document.createElement('span');
     title.className = 'spine-title';
     title.textContent = b.title;
-    btn.append(title);
+    // Shown only where the books lie flat in rows (narrow screens): the date, the kind and a status other than finished.
+    const meta = document.createElement('span');
+    meta.className = 'spine-meta';
+    meta.setAttribute('aria-hidden', 'true'); // the button's name already says all of it
+    meta.textContent = [dateText(b.date), kind, b.status && b.status !== 'finished' ? statusText(b.status) : ''].filter(Boolean).join(' · ');
+    btn.append(title, meta);
     if (b.status && b.status !== 'finished') {
       const mark = document.createElement('span');
       mark.className = 'spine-mark';
@@ -593,7 +682,7 @@
     const hold = still() ? 500 : 4400; // the fetching scene's loop ends with her presenting the book at about 4.4 s
     const started = Date.now();
     state.holdUntil = started + hold + 400;
-    if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearInterval(flightTimer); }
+    if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearTimeout(flightTimer); }
     // On a phone the search sits far below her desk: bring her into view so you see her go to the shelf.
     const seen = $('scene').getBoundingClientRect();
     if (status !== $('search-status')) $('search-status').dataset.keep = '';
@@ -699,6 +788,7 @@
     if (token !== state.pageToken) return;
     $('leaf-name').textContent = pageName(p);
     body.innerHTML = html;
+    roomy(body);
     body.scrollTop = 0;
     const folio = $('folio');
     folio.textContent = fmt(ui('pageOf'), { n: i + 1, of: book.pages.length });
@@ -709,11 +799,48 @@
     $('book-prev').setAttribute('aria-disabled', String(i === 0));
     $('book-next').setAttribute('aria-disabled', String(i === book.pages.length - 1));
     $('book-toc').querySelectorAll('.toc-item').forEach((b, k) => {
-      if (k === i) b.setAttribute('aria-current', 'page');
-      else b.removeAttribute('aria-current');
+      if (k === i) { b.setAttribute('aria-current', 'page'); intoRow(b); } else b.removeAttribute('aria-current');
     });
+    // On a phone the whole book scrolls as one: a turned page starts at its own top, not halfway down the last one.
+    const spread = leaf.closest('.book-spread');
+    if (dir !== 0 && spread.scrollHeight > spread.clientHeight + 1) {
+      spread.scrollTop += leaf.parentElement.getBoundingClientRect().top - spread.getBoundingClientRect().top;
+    }
     if (motion && dir > 0) leaf.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
     if (motion && dir < 0) leaf.animate([{ transform: 'rotateY(-88deg)', opacity: 0.4 }, { transform: 'rotateY(0deg)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
+  }
+
+  // Wide tables and code scroll sideways inside their own box, never the page. A box that does scroll can take keyboard
+  // focus, so it can be scrolled without a mouse (SC 2.1.1); one that fits adds no tab stop.
+  function roomy(body) {
+    const scrolls = (el, label) => {
+      if (el.scrollWidth <= el.clientWidth + 1) return;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'region');
+      el.setAttribute('aria-label', label);
+    };
+    body.querySelectorAll('table').forEach((t) => {
+      // md.js already puts each table in its own .md-table box; a second box inside it would clip the table while the
+      // outer one, the one a person reaches, never scrolls. Wrap only a table that has no box.
+      let box = t.parentElement;
+      if (!box || !box.classList.contains('md-table')) {
+        box = document.createElement('div');
+        box.className = 'md-table';
+        t.replaceWith(box);
+        box.append(t);
+      }
+      scrolls(box, ui('tableBox'));
+    });
+    body.querySelectorAll('pre').forEach((pre) => scrolls(pre, ui('codeBox')));
+  }
+
+  // In the one-line row of page names (narrow screens), keep the current page's name in view.
+  function intoRow(item) {
+    const row = $('book-toc');
+    if (row.scrollWidth <= row.clientWidth) return;
+    const r = item.getBoundingClientRect();
+    const o = row.getBoundingClientRect();
+    row.scrollLeft += (r.left - o.left) - (o.width - r.width) / 2;
   }
 
   // ---------------------------------------------------------------- was this the book you needed?
@@ -819,20 +946,24 @@
     dlg.addEventListener('keydown', bookKeys);
     dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('close', () => {
+      const closed = state.book && state.book.id;
       state.book = null;
       state.asked = null;
+      if (closed && state.unseen.some((u) => u.id === closed)) firstClose(closed); // may hide the button that opened it
       const again = state.openerId && document.querySelector(`.spine[data-id="${CSS.escape(state.openerId)}"]`);
-      const back = state.opener && document.contains(state.opener) ? state.opener : again || $('q');
-      back.focus();
+      const shown = (el) => el && document.contains(el) && el.offsetParent !== null;
+      const back = [state.opener, again, $('scene-pause'), $('desk-q'), $('q')].find(shown);
+      if (back) back.focus();
     });
+    $('present').addEventListener('click', () => { if (state.presentId) openBook(state.presentId, $('present')); });
   }
 
   async function start() {
     wire();
     await loadCopy();
     renderResearch(null);
+    await loadLibrary(); // first, so a waiting book is known before her first caption is read out
     pollStage();
-    loadLibrary();
     loadQueue();
   }
 

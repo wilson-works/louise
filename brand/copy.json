@@ -12,11 +12,11 @@
   ],
   "stages": {
     "idle": [
-      "Ready when you are. Ask me a question, or browse the shelves.",
-      "The kettle's on. What shall we look up?",
-      "All the books are shelved. I'm free for a new question.",
-      "Nothing on my desk at the moment. Ask me something and I'll get started.",
-      "Quiet in here. A good time to ask me something."
+      "Ready when you are. I'll mark my page. Ask me a question, or browse the shelves.",
+      "My tea's on the desk and my book is open. What shall we look up?",
+      "All the books are shelved, so I'm reading one. Ask me something any time.",
+      "A quiet chapter while I wait. Ask me something and I'll put my book down.",
+      "Quiet in here, so I'm reading. A good time to ask me something."
     ],
     "researching": [
       "Looking up {topic}. I write down where every fact came from.",
@@ -41,10 +41,16 @@
     ],
     "shelving": [
       "Shelving the finished books. You'll find them in the Library below.",
-      "Filling the cart. Every book gets a place, so you can find it later.",
+      "Off to the bookcase with the new book. Every book gets a place, so you can find it later.",
       "Writing the summary book for this run, then shelving the lot.",
       "Shelving {topic}. Look for it by topic, run or month.",
       "Nothing gets lost here. Every book goes on a shelf."
+    ],
+    "presenting": [
+      "I've finished {topic}. Want to see it?",
+      "I've finished one. Want to see?",
+      "A new book, and you haven't seen it yet. Shall I show you?",
+      "Fresh off my desk: {topic}. I've been waiting to show you."
     ],
     "fetching": [
       "Off to the shelves. One moment.",
@@ -59,7 +65,12 @@
     "council": "The reading room",
     "distill": "The red pen",
     "shelving": "Shelving",
-    "fetching": "Fetching a book"
+    "fetching": "Fetching a book",
+    "presenting": "A new book for you"
+  },
+  "presenting": {
+    "_": "When she has finished a book the person has not opened yet, she holds it out at her desk. open is the button that opens it; after it is closed the first time she shelves it.",
+    "open": "Show me the book"
   },
   "library": {
     "title": "The Library",
@@ -165,7 +176,7 @@
     "Anyone can guess. I'd rather find you a source.",
     "The red pen is for the reports, not for you. Come in.",
     "Glasses on, chain on. What are we looking up?",
-    "Mind the book cart. One wheel has a mind of its own.",
+    "I walk every new book to its shelf myself. Nobody else knows where it goes.",
     "Overdue? Not at all. You're right on time.",
     "My computer is older than some of my sources, and every bit as reliable.",
     "If I can't find a source, I'll tell you. That's the whole trick.",

@@ -13,8 +13,8 @@ She is warm and in no hurry, with a quiet sense of humour. About sources, she is
 ## Who she is
 
 - **How she looks.** An elderly woman with big square glasses on a chain. A beige computer from around 2000:
-  a deep box monitor, a beige tower and a keyboard on a wooden desk. A red marker in her pocket. A cart of
-  books by her desk.
+  a deep box monitor, a beige tower and a keyboard on a wooden desk. A red marker in her pocket. She walks
+  every new book to its shelf herself.
 - **Her history (invented, and told lightly).** Forty years at the reference desk of a small public library,
   answering everything from bus timetables to tax forms. When the library got its first computer, she was
   the one who read the whole manual. When it was replaced, she asked to keep it. It still works.

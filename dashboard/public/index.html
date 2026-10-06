@@ -4,7 +4,8 @@
   caption, what she is working on, and the request form), the Library (shelves of books you can arrange and search, or ask
   her to fetch from) and the open book (a dialog whose pages you flip). Her desk also has "Ask me what we already have"
   (the same fetch as the Library's search, above the fold), "Research my list" and "Stop" by her list, and a book opened
-  by a question asks "Was this the book you needed?". Every line she says comes from /brand/copy.json;
+  by a question asks "Was this the book you needed?". When she has finished a book you have not opened yet, she holds it
+  out and "Show me the book" opens it. Every line she says comes from /brand/copy.json;
   elements marked data-copy are filled from it by app.js. No build step, no framework, nothing loaded from elsewhere.
 -->
 <html lang="en">
@@ -17,6 +18,7 @@
   <link rel="stylesheet" href="/brand/tokens.css">
   <link rel="stylesheet" href="app.css">
   <script src="md.js" defer></script>
+  <script src="crt.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -57,6 +59,7 @@
           <p class="caption-stage" id="stage-name"></p>
           <p class="caption-line" id="caption"></p>
         </div>
+        <button type="button" class="btn btn-gilt present" id="present" data-copy="presenting.open" hidden>Show me the book</button>
         <p class="desk-offline" id="desk-offline" role="status"></p>
 
         <form class="ask" id="desk-ask-form" role="search" novalidate>

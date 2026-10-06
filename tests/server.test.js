@@ -169,6 +169,36 @@ test('a POST must be JSON from her own page; fetch sends her fetching; a request
   assert.equal((await req('GET', '/api/fetch')).status, 405);
 });
 
+test('a book that arrives after the first visit waits in unseen until POST /api/seen; the shelves she had never wait', async () => {
+  const first = await req('GET', '/api/library');
+  assert.equal(first.status, 200);
+  assert.deepEqual(first.body.unseen, [], 'everything already on the shelves counts as seen');
+  assert.ok(fs.existsSync(path.join(lib.home, 'state', 'seen.json')), 'the list is kept in state/');
+
+  const dir = path.join(lib.root, '2026-10-05-new-report');
+  write(path.join(dir, '00-brief.md'), '# Scope Brief: A new report\n');
+  write(path.join(dir, '01-overview.md'), '# Overview\n\nNew [^1].\n');
+  write(path.join(dir, 'meta.json'), JSON.stringify({ title: 'A new report', status: 'complete', sourceCount: 1, totalLines: 2 }));
+  library.invalidate();
+  const id = '0-t-2026-10-05-new-report';
+  const later = await req('GET', '/api/library?q=frost');
+  assert.deepEqual(later.body.unseen, [{ id, title: 'A new report' }], 'a search does not hide the waiting book');
+
+  assert.equal((await req('POST', '/api/seen', { body: `{"book":"${id}"}`, headers: { 'Content-Type': 'text/plain' } })).status, 403);
+  assert.equal((await post('/api/seen', { book: id }, { Origin: 'http://evil.example.org' })).status, 403);
+  assert.equal((await post('/api/seen', { book: id }, { 'Sec-Fetch-Site': 'cross-site' })).status, 403);
+  assert.equal((await post('/api/seen', '{not json')).status, 400);
+  assert.equal((await post('/api/seen', { book: '0-t-nope' })).status, 404);
+  assert.equal((await post('/api/seen', { book: '../state/seen.json' })).status, 404);
+  assert.equal((await req('GET', '/api/seen')).status, 405);
+  assert.deepEqual((await req('GET', '/api/library')).body.unseen, [{ id, title: 'A new report' }], 'a refused POST changes nothing');
+
+  const ok = await post('/api/seen', { book: id }, { Origin: `http://127.0.0.1:${port}`, 'Sec-Fetch-Site': 'same-origin' });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.body.unseen, []);
+  assert.deepEqual((await req('GET', '/api/library')).body.unseen, []);
+});
+
 /** A port nothing is using, from the system. */
 function freePort() {
   return new Promise((resolve) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });

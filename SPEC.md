@@ -80,11 +80,12 @@ a beige tower, with a keyboard on a wooden desk.
 | Stage | Scene |
 |---|---|
 | `researching` | The monitor in left side profile, its screen facing Louise; light from the screen flickers like pages refreshing. Louise in side profile, inches from the screen, her hands typing away at the keyboard. |
-| `council` | Louise reading a book. |
+| `council` | Louise reading a book: in the reading room she leans in over a big open book on her desk, a second open book and the readers' stack beside her. |
 | `distill` | Louise at her desk with a red marker, writing on papers. |
-| `shelving` | Louise filling a cart with books; the books go into the Library section of the dashboard. |
+| `shelving` | Louise gets up with the new book, walks to the bookcase and slides it into its place on the shelf (the owner, 2026-10-05: no cart); each time, a book flies from there into the Library section of the dashboard. |
 | `fetching` | Louise going to the shelf and coming back with the book you asked for. |
-| `idle` | Louise at rest at her desk (lane D's choice: tea, a quiet book, glasses resting on the chain). |
+| `idle` | Louise at rest at her desk, reading a book, sitting back, her tea set aside on the desk (the owner, 2026-10-05). |
+| (presenting) | Not a stage: the page shows it at rest while a finished book waits for you (see below). Louise stands by her desk holding the new book out, eager. |
 
 Motion is CSS on the SVG parts, gentle, and stops for people who ask for reduced motion. The office-door figure
 (`art.svg`) is Louise standing, glasses on the chain, friendly.
@@ -93,13 +94,26 @@ Motion is CSS on the SVG parts, gentle, and stops for people who ask for reduced
 
 One page, three parts:
 
-1. **Her desk**: the scene for the current stage, a caption in her voice (from `brand/copy.json`), the topic and step
-   when she is working, and a "Request research" form (a topic and a sentence of framing) that adds to her queue.
+1. **Her desk**: the scene for the current stage, a caption in her voice (from `brand/copy.json`), her screen strip,
+   and a "Request research" form (a topic and a sentence of framing) that adds to her queue. The screen strip reads
+   READY only at idle. In every other stage it is live: the topic, or else her note (so a run that is only getting
+   ready reads `> Getting ready`), the step with its dots, and the minutes the step has run.
 2. **The Library**: shelves of books. Each research topic is a book; council proceedings and run summaries are books
    too. A shelf indicator shows each section and its count. "Arrange the shelves by" Topic, Run, Month or Status (the
    filter of choice), plus a search box. Book spines show the title, colour by section, height by size.
 3. **The open book**: click a book and it opens; flip through its pages (the brief, the overview, the deep dive, the
    sources, the summary card, its council notes). Markdown rendered as plain, safe HTML (no raw HTML from the files).
+
+A new book waits for you (the owner, 2026-10-05: "when she finishes a report we haven't seen yet she should be standing
+eagerly waiting to show us before putting it up after we close it for the first time"). `state/seen.json` (git-ignored)
+keeps the books you have opened. The first time it is read, every book already on the shelves counts as seen; the
+examples never count. At rest (stage `idle`), while a finished book is not on that list, the page shows the
+`presenting` scene with "Show me the book". Closing that book the first time posts `/api/seen`; she then walks it to
+the shelves (the `shelving` scene, once) and goes back to reading. The run's own stages do not change.
+
+On a phone (under 600 px) the shelves show each book lying flat, one to a row, its title across in two lines with its
+date and status; the open book scrolls as one page, its page names sit in one row that scrolls sideways, wide tables and
+code scroll inside their own box, and Previous and Next stay below the page.
 
 "Ask Louise to fetch it": the search box's "Ask Louise" button posts to `/api/fetch`; the stage goes to `fetching`, she
 brings the book, and it opens.
@@ -110,7 +124,7 @@ brings the book, and it opens.
 |---|---|
 | `GET /health` | `{"ok":true}` (no token, ever: the office probes it) |
 | `GET /api/stage` | the stage object above |
-| `GET /api/library?arrange=topic\|run\|month\|status&q=` | `{ "sections": [{ "id", "label", "count" }], "books": [{ "id", "title", "section", "kind": "topic\|council\|run-summary", "status": "finished\|in-progress\|failed\|flagged", "date", "run", "sources", "lines", "pages": n }], "examples": true\|false }` (`examples`: the shelves hold only the invented examples) |
+| `GET /api/library?arrange=topic\|run\|month\|status&q=` | `{ "sections": [{ "id", "label", "count" }], "books": [{ "id", "title", "section", "kind": "topic\|council\|run-summary", "status": "finished\|in-progress\|failed\|flagged", "date", "run", "sources", "lines", "pages": n }], "examples": true\|false, "unseen": [{ "id", "title" }] }` (`examples`: the shelves hold only the invented examples; `unseen`: finished books you have not opened yet, newest first, whatever the search) |
 | `GET /api/book/<id>` | `{ "id", "title", "kind", "status", "date", "run", "pages": [{ "n", "name", "kind", "file" }] }` (page `kind`: `brief`, `report`, `sources`, `card`, `council`, `validation`, `transcript`, `run-summary`, `note`; `name` comes from `brand/copy.json` `book.pageNames`) |
 | `GET /api/book/<id>/page/<n>` | `{ "n", "name", "kind", "markdown" }`: only a file inside a configured library root, at most 512 KB |
 | `POST /api/fetch` `{ "q" }` | `{ "book": "<id>" or null, "matches": [ids] }`, and the stage goes to `fetching` |
@@ -120,6 +134,7 @@ brings the book, and it opens.
 | `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library\|no-skill" }; before it starts, the skills her `agent.json` requires are copied into her `.claude/skills/` (`engine/skills.js`), and the run leaves the user's own settings out (`--setting-sources project,local`)` |
 | `POST /api/research/stop` `{}` | stops the run she recorded, and only it; her stage goes to `idle`; `409` (`not-running`) when there is none |
 | `POST /api/feedback` `{ "q", "book", "helpful" }` | remembers whether the book she brought for `q` was the one you needed, in `state/feedback.jsonl`; `{ "remembered": n }` |
+| `POST /api/seen` `{ "book" }` | you have opened this book (sent when it is closed the first time), kept in `state/seen.json`; `{ "seen": n, "unseen": [{ "id", "title" }] }`; `404` when the book is not on the shelves |
 
 The server binds 127.0.0.1 only, answers only Host `127.0.0.1`, `localhost` or the host in its own `door.phone`, reads
 only inside the configured library roots, and writes only `state/` and `requests/`. The one program it starts is a

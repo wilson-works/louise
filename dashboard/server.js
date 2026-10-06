@@ -14,7 +14,7 @@
  *     from this page. A page on another site cannot add to her list or send her fetching.
  *   - Reads library pages only inside the configured library roots (their real paths, links followed and checked),
  *     at most 512 KB a page. Writes only state/ (her stage, her research run's files, what she remembers from your
- *     answers) and requests/ (her list).
+ *     answers, the books you have opened) and requests/ (her list).
  *   - Starts one program: Claude Code, for a research run of her list, with arguments fixed in engine/research.js.
  *     Nothing from a request reaches it. It stops only the run it recorded.
  *
@@ -30,7 +30,10 @@
  * The API (SPEC.md):
  *   GET  /health                         {"ok":true}, no token, ever: the office probes it
  *   GET  /api/stage                      { stage, topic, run, step, since, note } (+ book while fetching)
- *   GET  /api/library?arrange=&q=        { sections: [{ id, label, count }], books: [...], examples }
+ *   GET  /api/library?arrange=&q=        { sections: [{ id, label, count }], books: [...], examples, unseen }
+ *                                        unseen: [{ id, title }], finished books the person has not opened yet, newest
+ *                                        first (engine/seen.js; whatever was on the shelves the first time counts as
+ *                                        seen)
  *   GET  /api/book/<id>                  { id, title, kind, status, date, run, pages: [{ n, name, kind, file }] }
  *   GET  /api/book/<id>/page/<n>         { n, name, kind, markdown }
  *   POST /api/fetch    { q }             { book, matches }, and her stage goes to fetching
@@ -45,6 +48,8 @@
  *   POST /api/feedback { q, book, helpful }  remembers whether the book she brought for q was the one you needed
  *                                        (engine/feedback.js): { remembered: n }. q is cut to 300 characters; book must
  *                                        be on the shelves (404); helpful must be true or false (400).
+ *   POST /api/seen  { book }             the person has opened this book (sent when it is closed the first time):
+ *                                        { seen: n, unseen: [{ id, title }] }; 404 when the book is not on the shelves.
  * An error is { "error": "<a plain sentence>" } with a 4xx status (and a "reason" for the research routes).
  *
  *   createServer(opts)   the server, not yet listening (the tests use it). opts { home, roots, phoneHost, port,
@@ -63,6 +68,7 @@ const fetcher = require('../engine/fetch');
 const requests = require('../engine/requests');
 const research = require('../engine/research');
 const feedback = require('../engine/feedback');
+const seen = require('../engine/seen');
 
 const HOME = path.resolve(__dirname, '..');
 const BODY_MAX = 16 * 1024;
@@ -135,6 +141,7 @@ function createServer(opts) {
   const stateFile = stage.stageFile(home);
   const queueFile = requests.queueFile(home);
   const feedbackFile = feedback.feedbackFile(home);
+  const seenFile = seen.seenFile(home);
   const runOpts = { home, writeRoot: o.writeRoot || null, claude: o.claude || null, launch: o.launch, hub: o.hub, homeDir: o.homeDir };
   const hosts = new Set(['127.0.0.1', 'localhost']);
   if (o.phoneHost) hosts.add(String(o.phoneHost).toLowerCase());
@@ -161,7 +168,9 @@ function createServer(opts) {
 
     if (p === '/api/stage' && m === 'GET') return json(res, 200, stage.current(stateFile, roots));
     if (p === '/api/library' && m === 'GET') {
-      return json(res, 200, library.shelves(index(), { arrange: url.searchParams.get('arrange') || 'topic', q: url.searchParams.get('q') || '' }));
+      const ix = index();
+      const view = library.shelves(ix, { arrange: url.searchParams.get('arrange') || 'topic', q: url.searchParams.get('q') || '' });
+      return json(res, 200, Object.assign(view, { unseen: seen.unseen(seenFile, ix) }));
     }
     if (p === '/api/requests' && m === 'GET') return json(res, 200, { requests: requests.list(queueFile) });
     if (p === '/api/research' && m === 'GET') return json(res, 200, research.status(runOpts));
@@ -173,7 +182,7 @@ function createServer(opts) {
     bm = /^\/api\/book\/([A-Za-z0-9._-]{1,200})\/page\/(\d{1,4})$/.exec(p);
     if (bm && m === 'GET') return json(res, 200, library.readPage(index(), bm[1], Number(bm[2])));
 
-    if (['/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback'].includes(p) && m === 'POST') {
+    if (['/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback', '/api/seen'].includes(p) && m === 'POST') {
       const refused = postRefused(req);
       if (refused) return fail(res, 403, refused);
       let body;
@@ -183,6 +192,7 @@ function createServer(opts) {
       }
       if (!body || typeof body !== 'object' || Array.isArray(body)) return fail(res, 400, 'Send one JSON object.');
       if (p === '/api/fetch') return json(res, 200, fetcher.fetchBook(body.q, { roots, stateFile, feedbackFile }));
+      if (p === '/api/seen') return json(res, 200, seen.mark(seenFile, index(), body.book));
       if (p === '/api/feedback') {
         const ix = index();
         return json(res, 200, feedback.record(feedbackFile, { q: body.q, book: body.book, helpful: body.helpful }, { known: (id) => ix.byId.has(id) }));
@@ -199,7 +209,7 @@ function createServer(opts) {
       }
       return json(res, 200, requests.add(queueFile, { topic: body.topic, framing: body.framing }));
     }
-    if (['/api/stage', '/api/library', '/api/requests', '/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback'].includes(p)) return fail(res, 405, 'That address does not take that kind of request.');
+    if (['/api/stage', '/api/library', '/api/requests', '/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback', '/api/seen'].includes(p)) return fail(res, 405, 'That address does not take that kind of request.');
     return fail(res, 404, 'Not found.');
   }
 
