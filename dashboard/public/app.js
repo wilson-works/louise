@@ -820,10 +820,15 @@
       el.setAttribute('aria-label', label);
     };
     body.querySelectorAll('table').forEach((t) => {
-      const box = document.createElement('div');
-      box.className = 'md-table';
-      t.replaceWith(box);
-      box.append(t);
+      // md.js already puts each table in its own .md-table box; a second box inside it would clip the table while the
+      // outer one, the one a person reaches, never scrolls. Wrap only a table that has no box.
+      let box = t.parentElement;
+      if (!box || !box.classList.contains('md-table')) {
+        box = document.createElement('div');
+        box.className = 'md-table';
+        t.replaceWith(box);
+        box.append(t);
+      }
       scrolls(box, ui('tableBox'));
     });
     body.querySelectorAll('pre').forEach((pre) => scrolls(pre, ui('codeBox')));

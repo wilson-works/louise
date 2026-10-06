@@ -120,3 +120,15 @@ test('in the runbook, every working stage she is set to carries a note or a topi
   assert.ok(council.length >= 3, 'the reading room moves the strip as it goes, not once');
   assert.ok(council.every((m) => /--step \d\/\d/.test(m[2])), 'each reading-room step is numbered');
 });
+
+// The gate's must-fix (GATE-LOUISE-REST, b1ea4a1): md.js already boxes each table in .md-table; the page wrapped it a
+// second time, and the outer box (the one a person reaches) never scrolled. One box per table, and the page reuses it.
+test('a wide table sits in exactly one scrolling box: the page reuses the box md.js makes', () => {
+  const md = require('../dashboard/public/md.js');
+  const html = md.render('| A | B | C | D |\n|---|---|---|---|\n| one | two | three | four |');
+  assert.equal((html.match(/class="md-table"/g) || []).length, 1, 'md.js boxes the table once');
+  const app = read('dashboard/public/app.js');
+  const roomy = app.slice(app.indexOf('function roomy('), app.indexOf('function intoRow('));
+  assert.match(roomy, /classList\.contains\('md-table'\)/, 'roomy() takes the box md.js made instead of adding another');
+  assert.match(read('dashboard/public/app.css'), /\.md-table \{[^}]*overflow-x: auto/, 'the box scrolls sideways');
+});

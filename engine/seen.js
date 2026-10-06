@@ -11,7 +11,9 @@
  *
  * The rules:
  *   1. The first time the list is read and there is no file, every book on the shelves now counts as seen, and the
- *      file is written. A library she already had never waits; only books that arrive after that do.
+ *      file is written. A library she already had never waits; only books that arrive after that do. The file is
+ *      written only when every root but the examples is a readable folder at that moment; otherwise nothing waits on
+ *      that visit and the next one tries again (an unreadable drive must not start the list empty).
  *   2. A book waits (is unseen) when it is finished, is not one of the invented examples, and is not in the list.
  *      The examples never wait and are never written to the list.
  *   3. A book is added to the list when the person closes it the first time (POST /api/seen).
@@ -60,12 +62,22 @@ function write(file, data) {
   }
 }
 
-/** The list, started from every book on the shelves now when there is no list yet (rule 1). */
+/** True when every root but the examples is a folder that can be read right now. */
+function readable(index) {
+  return (index.roots || []).every((r) => {
+    if (r.example) return true;
+    try { return fs.statSync(r.path).isDirectory() && Boolean(fs.readdirSync(r.path)); } catch (_) { return false; }
+  });
+}
+
+/** The list, started from every book on the shelves now when there is no list yet (rule 1). The fresh list is kept
+ *  only when every root could be read: a drive not there yet, or a folder refused, would otherwise keep an empty list
+ *  and make every book wait on the next visit. Until then nothing waits, and the next visit tries again. */
 function load(file, index, now) {
   const have = read(file);
   if (have) return have;
   const fresh = { since: new Date(now || Date.now()).toISOString(), seen: (index.books || []).filter((b) => !b.example).map((b) => keyOf(index, b)) };
-  write(file, fresh);
+  if (readable(index)) write(file, fresh);
   return fresh;
 }
 

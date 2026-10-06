@@ -2,7 +2,8 @@
 // Contract under test: the first read starts the list from every book on the shelves (the library she already had
 // never waits); after that a finished book that is not an example and not on the list waits, newest first; failed,
 // flagged and in-progress books never wait, nor do the examples; marking a book seen takes it off; a book that is not
-// on the shelves is a 404; adding or reordering roots does not make old books new. Hermetic: a temporary folder only.
+// on the shelves is a 404; adding or reordering roots does not make old books new; while a root cannot be read the list
+// is not started (so an unreadable drive cannot make every book wait later). Hermetic: temporary folders only.
 'use strict';
 
 const test = require('node:test');
@@ -15,6 +16,7 @@ const { tmpdir } = require('./fixtures');
 const A = path.join(tmpdir('seen-a'), 'research');
 const B = path.join(tmpdir('seen-b'), 'research');
 const EX = path.join(tmpdir('seen-ex'), 'examples');
+for (const dir of [A, B, EX]) fs.mkdirSync(dir, { recursive: true }); // real, readable library folders
 
 // An index in the shape engine/library.js gives: book ids start with their root's number.
 function index(roots, books) {
@@ -78,4 +80,28 @@ test('an unreadable list is started again from the shelves, never a flood of eve
   fs.writeFileSync(file, '{ not json');
   const ix = index([{ path: A }], [{ id: '0-t-2026-01-01-old', title: 'Old', date: '2026-01-01' }]);
   assert.deepEqual(seen.unseen(file, ix), []);
+});
+
+test('while a root cannot be read, the list is not started; the first visit that can read them all starts it', () => {
+  const home = tmpdir('seen-home');
+  const file = seen.seenFile(home);
+  const gone = path.join(home, 'not-mounted-yet', 'research');
+  const books = [{ id: '1-t-2026-01-01-old', title: 'Old', date: '2026-01-01' }];
+  // The drive is not there: the shelves read as empty, nothing waits, and nothing is written.
+  assert.deepEqual(seen.unseen(file, index([{ path: A }, { path: gone }], [])), []);
+  assert.equal(fs.existsSync(file), false, 'no list is kept from an unreadable library');
+  // It comes back with its books: they are the library she already had, so none of them waits.
+  fs.mkdirSync(gone, { recursive: true });
+  assert.deepEqual(seen.unseen(file, index([{ path: A }, { path: gone }], books)), []);
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).seen.length, 1, 'now the list is kept');
+  // A root that is a file, not a folder, does not count as readable either.
+  const file2 = seen.seenFile(tmpdir('seen-home'));
+  const notDir = path.join(tmpdir('seen-file'), 'research.txt');
+  fs.writeFileSync(notDir, 'x');
+  seen.unseen(file2, index([{ path: notDir }], []));
+  assert.equal(fs.existsSync(file2), false);
+  // The examples never hold it up.
+  const file3 = seen.seenFile(tmpdir('seen-home'));
+  seen.unseen(file3, index([{ path: A }, { path: path.join(gone, 'nope'), example: true }], []));
+  assert.equal(fs.existsSync(file3), true, 'an example root that is missing does not stop the list');
 });
