@@ -5,8 +5,11 @@
 //   {topic} or {n} are used only when the page has that value. A few plain labels that are not her voice live in UI
 //   below; a "ui" block in copy.json overrides any of them by the same key.
 // - Her desk: polls GET /api/stage every 2 s. When the stage changes, the scene from /art/<stage>.svg crossfades in
-//   (inline, so the pause button can stop its motion), and a new caption is picked. While she is shelving, books fly
-//   from her cart to the shelves. The request form posts /api/request; her list comes from /api/requests.
+//   (inline, so the pause button can stop its motion), and a new caption is picked. The strip under the scene is her
+//   screen (crt.js makes its lines): READY at rest; in any other stage, what she is on (the topic, else her note), the
+//   step and how many minutes so far. While she is shelving, each time the new book she carries reaches its gap on the
+//   scene's bookcase, one book flies from there to the Library. The request form posts /api/request; her list comes
+//   from /api/requests.
 // - The Library: GET /api/library?arrange=&q= draws one shelf per section with an indicator and its count. Typing in
 //   the search box narrows the shelves; "Ask Louise" posts /api/fetch, plays the fetching scene, then opens the book.
 //   Her desk has the same "Ask Louise" box ("Ask me what we already have"), above the fold.
@@ -34,6 +37,8 @@
     pause: 'Pause the scene',
     play: 'Play the scene',
     step: 'Step {n} of {of}',
+    minutes: '{m} min so far',
+    hours: '{h} h {m} min so far',
     ready: 'READY',
     offline: "Her desk can't be reached right now. The page keeps trying.",
     books: '{count} books',
@@ -214,30 +219,33 @@
     say($('caption'), pick(copy.stages && copy.stages[stage], vals, `stage-${stage}`), vals);
   }
 
+  // Her screen: live in every stage but idle, so a run never reads as READY (crt.js has the rules).
   function screen(s) {
     const crt = $('crt');
     crt.hidden = false;
-    const working = s.stage !== 'idle' && s.topic;
+    const v = LouiseCrt.lines(s, copy.stageNames, Date.now());
     const ct = $('crt-topic');
     ct.textContent = '';
-    if (working) {
+    if (!v.ready) {
       const prompt = document.createElement('span');
       prompt.setAttribute('aria-hidden', 'true');
       prompt.textContent = '> ';
-      ct.append(prompt, s.topic);
+      ct.append(prompt, v.head);
     } else ct.textContent = ui('ready');
-    const step = s.step && Number(s.step.n) > 0 && Number(s.step.of) > 0 ? s.step : null;
-    $('crt-step').textContent = working && step ? fmt(ui('step'), { n: step.n, of: step.of }) : '';
+    const m = v.minutes;
+    const since = m >= 60 ? fmt(ui('hours'), { h: Math.floor(m / 60), m: m % 60 }) : m >= 1 ? fmt(ui('minutes'), { m }) : '';
+    const step = v.step ? fmt(ui('step'), { n: v.step.n, of: v.step.of }) : '';
+    $('crt-step').textContent = [step, since].filter(Boolean).join(' · ');
     const dots = $('crt-dots');
     dots.textContent = '';
-    if (working && step && step.of <= 12) {
-      for (let i = 1; i <= step.of; i++) {
+    if (v.step && v.step.of <= 12) {
+      for (let i = 1; i <= v.step.of; i++) {
         const li = document.createElement('li');
-        li.className = i < step.n ? 'is-done' : i === Number(step.n) ? 'is-now' : '';
+        li.className = i < v.step.n ? 'is-done' : i === v.step.n ? 'is-now' : '';
         dots.append(li);
       }
     }
-    $('crt-note').textContent = working && s.note ? s.note : '';
+    $('crt-note').textContent = v.note;
   }
 
   function applyStage(s) {
@@ -275,15 +283,40 @@
     }
   }
 
-  // ---------------------------------------------------------------- shelving: books travel from her cart to the shelves
+  // ---------------------------------------------------------------- shelving: the book she shelves goes to the Library
+  // The shelving scene marks the new book she carries (an id ending "-newbook") with data-loop-ms (the scene's loop) and
+  // data-placed-ms (when in that loop the book is in its gap on the bookcase). Each loop, at that moment, one book flies
+  // from there down to the Library. One book a loop, no more: calm.
   let flightTimer = null;
   let flightN = 0;
 
   function onStageChange(stage, was) {
-    clearInterval(flightTimer);
+    clearTimeout(flightTimer);
     flightTimer = null;
-    if (stage === 'shelving') { flightTimer = setInterval(flyBook, 1300); setTimeout(flyBook, 700); }
+    if (stage === 'shelving') flightTimer = setTimeout(nextFlight, 400); // the scene is still crossfading in
     if (was !== null) { loadLibrary(); loadQueue(); }
+  }
+
+  const newBook = () => $('scene').querySelector('.scene-layer.is-in [id$="-newbook"]');
+
+  // Ms until the new book is next in its gap, read from the scene's own running animation; null when it cannot be read.
+  function untilPlaced() {
+    const book = newBook();
+    const loop = book ? Number(book.dataset.loopMs) : NaN;
+    const placed = book ? Number(book.dataset.placedMs) : NaN;
+    const svg = book && book.ownerSVGElement;
+    if (!(loop > 0) || !(placed >= 0) || !svg || !svg.getAnimations) return null;
+    const anim = svg.getAnimations({ subtree: true }).find((a) => a.effect && Math.abs(Number(a.effect.getTiming().duration) - loop) < 1);
+    if (!anim || anim.currentTime == null) return null;
+    const t = Number(anim.currentTime) % loop;
+    return (((placed - t) % loop) + loop) % loop;
+  }
+
+  function nextFlight() {
+    clearTimeout(flightTimer);
+    const wait = still() || document.hidden ? null : untilPlaced();
+    if (wait == null) { flightTimer = setTimeout(nextFlight, 1000); return; } // still, hidden or not drawn yet: look again soon
+    flightTimer = setTimeout(() => { flyBook(); flightTimer = setTimeout(nextFlight, 500); }, wait);
   }
 
   function flightTarget() {
@@ -296,19 +329,19 @@
   }
 
   function flyBook() {
-    if (still() || document.hidden) return;
-    const scene = $('scene');
-    const cart = scene.querySelector('.scene-layer.is-in [id$="-cart"]');
-    const a = (cart || scene).getBoundingClientRect();
+    const book = newBook();
+    if (still() || document.hidden || !book) return;
+    const a = book.getBoundingClientRect();
+    const s = $('scene').getBoundingClientRect();
     const b = flightTarget();
-    const x0 = a.left + a.width * (cart ? 0.5 : 0.7);
-    const y0 = a.top + a.height * (cart ? 0.3 : 0.6);
+    const x0 = a.left + a.width * 0.5;
+    const y0 = a.top + a.height * 0.5;
     const x1 = b.left + 24 + Math.random() * Math.max(0, b.width - 72);
     const y1 = Math.min(Math.max(b.top + b.height * 0.4, 24), window.innerHeight - 48);
     const el = document.createElement('div');
     el.className = `flight spine-${SPINES[flightN++ % SPINES.length]}`;
     $('flights').append(el);
-    const arc = Math.min(y0, y1) - Math.min(80, a.height * 0.45); // a small toss on a phone, not a lob across her face
+    const arc = Math.min(y0, y1) - Math.min(80, s.height * 0.14); // a small toss on a phone, not a lob across the room
     el.animate([
       { transform: `translate(${x0}px, ${y0}px) rotate(-10deg) scale(0.6)`, opacity: 0 },
       { transform: `translate(${x0 + (x1 - x0) * 0.15}px, ${y0 - 40}px) rotate(-4deg) scale(0.8)`, opacity: 1, offset: 0.18 },
@@ -593,7 +626,7 @@
     const hold = still() ? 500 : 4400; // the fetching scene's loop ends with her presenting the book at about 4.4 s
     const started = Date.now();
     state.holdUntil = started + hold + 400;
-    if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearInterval(flightTimer); }
+    if (state.stage !== 'fetching') { state.stage = 'fetching'; showScene('fetching'); clearTimeout(flightTimer); }
     // On a phone the search sits far below her desk: bring her into view so you see her go to the shelf.
     const seen = $('scene').getBoundingClientRect();
     if (status !== $('search-status')) $('search-status').dataset.keep = '';

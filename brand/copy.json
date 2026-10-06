@@ -12,11 +12,11 @@
   ],
   "stages": {
     "idle": [
-      "Ready when you are. Ask me a question, or browse the shelves.",
-      "The kettle's on. What shall we look up?",
-      "All the books are shelved. I'm free for a new question.",
-      "Nothing on my desk at the moment. Ask me something and I'll get started.",
-      "Quiet in here. A good time to ask me something."
+      "Ready when you are. I'll mark my page. Ask me a question, or browse the shelves.",
+      "My tea's on the desk and my book is open. What shall we look up?",
+      "All the books are shelved, so I'm reading one. Ask me something any time.",
+      "A quiet chapter while I wait. Ask me something and I'll put my book down.",
+      "Quiet in here, so I'm reading. A good time to ask me something."
     ],
     "researching": [
       "Looking up {topic}. I write down where every fact came from.",
@@ -41,7 +41,7 @@
     ],
     "shelving": [
       "Shelving the finished books. You'll find them in the Library below.",
-      "Filling the cart. Every book gets a place, so you can find it later.",
+      "Off to the bookcase with the new book. Every book gets a place, so you can find it later.",
       "Writing the summary book for this run, then shelving the lot.",
       "Shelving {topic}. Look for it by topic, run or month.",
       "Nothing gets lost here. Every book goes on a shelf."

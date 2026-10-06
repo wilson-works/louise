@@ -91,7 +91,10 @@ adding it to her list. In a run, the scope check fails it onto the "Needs a shar
 ## The runbook: a research run
 
 A run is one batch of questions researched together. It has four stages, the owner's order: looking it up, the
-reading room, the red pen, shelving. Set her stage at every step. Her dashboard reads it.
+reading room, the red pen, shelving. Set her stage at every step. Her dashboard reads it: the scene and caption come
+from the stage, and the screen strip under the scene shows the `--topic` (or else the `--note`), the `--step` and how
+long the step has run. So every line below carries a note or a topic, and a step where there is one. Without them the
+strip has nothing new to show while she works.
 
 ### 0. Get ready
 
@@ -119,6 +122,7 @@ At every wave, set her stage, using the run's `sessionId` and the wave number of
 - before the scope check: `node engine/stage.js set researching --topic "<title>" --run <sessionId> --step <wave>/<total> --note "Making sure I understand the question"`
 - before the deep researcher: the same, with `--note "Reading sources"`
 - before the citation check: the same, with `--note "Checking every fact has its source"`
+- when the waves are done, before the skill's Phase 4: `node engine/stage.js set researching --run <sessionId> --step <total>/<total> --note "Tidying the finished topics"`
 
 A topic that fails its scope check goes to `failed/`, and one that fails its citation check goes to `flagged/`,
 exactly as the skill says. Both stay on her shelves.
@@ -127,16 +131,25 @@ exactly as the skill says. Both stay on her shelves.
 
 When the waves are done (the skill's Phase 4), before its distill step:
 
-- When two or more topics finished in this run, and the person did not ask for a quick run:
-  `node engine/stage.js set council --run <sessionId> --note "Five readers on <n> topics"`, then
+- When two or more topics finished in this run, and the person did not ask for a quick run, run
   `/marathon-research-council <the finished slugs>` with `<research-root>` = the library,
   `<council-output-dir>` = `<library>/council`, `<research-index>` = `<library>/_index.md`, no backlog drafts.
+  Set her stage as the council reaches each part (`<n>` is the number of finished topics):
+  - before it gathers the findings (its Steps 1 to 3):
+    `node engine/stage.js set council --run <sessionId> --step 1/4 --note "Gathering the findings on <n> topics"`
+  - before the five readers (its Step 4):
+    `node engine/stage.js set council --run <sessionId> --step 2/4 --note "Five readers on <n> topics"`
+  - before the peer review (its Step 5):
+    `node engine/stage.js set council --run <sessionId> --step 3/4 --note "The readers check each other's notes"`
+  - before the write-up (its Steps 6 and 7):
+    `node engine/stage.js set council --run <sessionId> --step 4/4 --note "Writing up where they agree and differ"`
 - Otherwise skip it, and say why in the run summary book.
 
 ### 3. The red pen (the `distill` skill)
 
-1. For each topic that finished in this run, add a section to `<library>/_index.md` (make the file if it is not
-   there, with a `# Research Index` heading) in the shape distill reads:
+1. `node engine/stage.js set distill --run <sessionId> --note "Getting the cards ready"`. Then, for each topic that
+   finished in this run, add a section to `<library>/_index.md` (make the file if it is not there, with a
+   `# Research Index` heading) in the shape distill reads:
 
    ```
    ### <Topic title>
@@ -146,13 +159,13 @@ When the waves are done (the skill's Phase 4), before its distill step:
    ```
 
 2. For each one, as distill reaches it:
-   `node engine/stage.js set distill --topic "<title>" --run <sessionId> --step <i>/<n>`
+   `node engine/stage.js set distill --topic "<title>" --run <sessionId> --step <i>/<n> --note "Cutting it down to one card"`
 3. Run `/distill` (its auto-detect mode) with `<project-root>/research` = the library. Each card is 200 lines or
    fewer, in `<library>/summaries/`.
 
 ### 4. Shelving (her own step)
 
-1. `node engine/stage.js set shelving --run <sessionId> --note "Writing the summary book"`
+1. `node engine/stage.js set shelving --topic "<the run's title>" --run <sessionId> --step 1/2 --note "Writing the summary book"`
 2. Write the run's summary book at `<library>/runs/<sessionId>.md`, in her voice, starting with this front matter:
 
    ```
@@ -170,7 +183,8 @@ When the waves are done (the skill's Phase 4), before its distill step:
    it); "Set aside, labelled" (each flagged topic and the missing source); "The reading room" (what the readers
    agreed on and caught, or why it didn't meet); "The run in numbers" (questions, sources, cards).
    `examples/library/runs/` has two to follow.
-3. Check every book is on the shelf: `node engine/library.js list --arrange run`. Her shelves rebuild themselves
+3. `node engine/stage.js set shelving --topic "<the run's title>" --run <sessionId> --step 2/2 --note "Putting every book on its shelf"`,
+   then check every book is on the shelf: `node engine/library.js list --arrange run`. Her shelves rebuild themselves
    within seconds of a file landing.
 4. `node engine/stage.js set idle`
 5. Tell the person, in her voice: what finished, what is waiting for a sharper question, what was set aside, and

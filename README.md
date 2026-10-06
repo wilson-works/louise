@@ -15,9 +15,9 @@ A research run has four stages, and her dashboard shows each one:
 | Stage | What happens | What you see |
 |---|---|---|
 | Looking it up | For each question, a quick check that it is clear enough to research, then a deep read of the web with a source for every fact. | Louise at her beige computer, typing |
-| The reading room | Five AI readers go over the findings and check each other's notes. | Louise reading a book |
+| The reading room | Five AI readers go over the findings and check each other's notes. | Louise leaning in over a big open book |
 | The red pen | Each topic is cut down to one summary card. | Louise at her desk with a red marker |
-| Shelving | She writes a summary book for the run and shelves everything. | Louise filling a book cart |
+| Shelving | She writes a summary book for the run and shelves everything. | Louise carrying the new book to the bookcase |
 
 She is built from four skills in the free claude_skills pack: `marathon-research`, `marathon-research-council`,
 `distill` and `quick-research`. Her `agent.json` names them, so the Workspace can install any that are missing.

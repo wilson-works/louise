@@ -80,11 +80,11 @@ a beige tower, with a keyboard on a wooden desk.
 | Stage | Scene |
 |---|---|
 | `researching` | The monitor in left side profile, its screen facing Louise; light from the screen flickers like pages refreshing. Louise in side profile, inches from the screen, her hands typing away at the keyboard. |
-| `council` | Louise reading a book. |
+| `council` | Louise reading a book: in the reading room she leans in over a big open book on her desk, a second open book and the readers' stack beside her. |
 | `distill` | Louise at her desk with a red marker, writing on papers. |
-| `shelving` | Louise filling a cart with books; the books go into the Library section of the dashboard. |
+| `shelving` | Louise gets up with the new book, walks to the bookcase and slides it into its place on the shelf (the owner, 2026-10-05: no cart); each time, a book flies from there into the Library section of the dashboard. |
 | `fetching` | Louise going to the shelf and coming back with the book you asked for. |
-| `idle` | Louise at rest at her desk (lane D's choice: tea, a quiet book, glasses resting on the chain). |
+| `idle` | Louise at rest at her desk, reading a book, sitting back, her tea set aside on the desk (the owner, 2026-10-05). |
 
 Motion is CSS on the SVG parts, gentle, and stops for people who ask for reduced motion. The office-door figure
 (`art.svg`) is Louise standing, glasses on the chain, friendly.
@@ -93,8 +93,10 @@ Motion is CSS on the SVG parts, gentle, and stops for people who ask for reduced
 
 One page, three parts:
 
-1. **Her desk**: the scene for the current stage, a caption in her voice (from `brand/copy.json`), the topic and step
-   when she is working, and a "Request research" form (a topic and a sentence of framing) that adds to her queue.
+1. **Her desk**: the scene for the current stage, a caption in her voice (from `brand/copy.json`), her screen strip,
+   and a "Request research" form (a topic and a sentence of framing) that adds to her queue. The screen strip reads
+   READY only at idle. In every other stage it is live: the topic, or else her note (so a run that is only getting
+   ready reads `> Getting ready`), the step with its dots, and the minutes the step has run.
 2. **The Library**: shelves of books. Each research topic is a book; council proceedings and run summaries are books
    too. A shelf indicator shows each section and its count. "Arrange the shelves by" Topic, Run, Month or Status (the
    filter of choice), plus a search box. Book spines show the title, colour by section, height by size.
