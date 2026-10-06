@@ -209,7 +209,6 @@ test('the permission flags are exactly these (a literal list: widening any of th
   assert.deepEqual(args, [
     '-p', 'Louise, research my list.',
     '--append-system-prompt', "Louise's dashboard started this session. Nobody is at the keyboard and nobody can answer a question. Follow the section of her CLAUDE.md headed: A run started from her dashboard.",
-    '--setting-sources', 'project,local',
     '--permission-mode', 'acceptEdits',
     '--permission-prompts', 'none',
     '--add-dir', 'LIBRARY',

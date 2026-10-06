@@ -19,9 +19,6 @@
  *   -p "Louise, research my list."     print mode: one session, no keyboard, ends when the runbook ends
  *   --append-system-prompt <fixed>     tells the session her dashboard started it, so CLAUDE.md's "A run started from
  *                                      her dashboard" rules apply (nobody to ask; the button was the yes)
- *   --setting-sources project,local    the person's own ~/.claude/settings.json is not read, so their allow rules (and
- *                                      hooks) do not widen this list. Measured on 2.1.263: with it, a command allowed
- *                                      only by a user rule is refused; the user-scope skills still load.
  *   --permission-mode acceptEdits      file edits are accepted only inside the working folders: her folder (the cwd)
  *   --add-dir <the library>            and her library, where new research is written. Nothing else is writable.
  *   --permission-prompts none          anything not allowed below is refused at once, never waits for a person
@@ -39,7 +36,12 @@
  *                                      run can write only her list and state data, and the library.
  * Not given: --dangerously-skip-permissions, bypassPermissions, any bare Bash, Edit or Write rule, any other folder,
  * and no rule that runs a script the session could have written. A web page the run reads can still steer what it
- * writes in the library and which of these tools it calls; it cannot run code of its own.
+ * writes in the library and which of these tools it calls.
+ * The person's own Claude Code settings (~/.claude/settings.json: their allow rules and hooks) also apply, as in any
+ * session of theirs. --setting-sources project,local would leave them out, but measured on 2.1.263 it also leaves out
+ * the skills in ~/.claude/skills, which her runbook needs, so it is not used. README says so.
+ *
+ * The library folder is made before the run starts: --add-dir names a working folder only when it is there.
  *
  * Starting (start): refused when Claude Code is not found (409 no-claude), there is no library folder (409
  * no-library), her list is empty (409 empty) or a run is going (409 running). Otherwise it writes a job file and starts
@@ -106,7 +108,6 @@ function ARGS(home, library) {
   return [
     '-p', PROMPT,
     '--append-system-prompt', SYSTEM_NOTE,
-    '--setting-sources', 'project,local',
     '--permission-mode', 'acceptEdits',
     '--permission-prompts', 'none',
     '--add-dir', library,
@@ -239,6 +240,7 @@ async function start(opts) {
     token, cwd: home, log: logFile(home), runFile: runFile(home), stateFile: stage.stageFile(home),
     program: found.program, args: found.args.concat(args), image: found.image,
   };
+  fs.mkdirSync(o.writeRoot, { recursive: true }); // --add-dir names a working folder only when it is there
   writeJson(runFile(home), { starting: true, token, at: new Date().toISOString() });
   stage.set(stage.stageFile(home), 'researching', { note: 'Getting ready' });
   (o.launch || launchDetached)(job, home);
