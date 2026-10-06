@@ -281,9 +281,12 @@
     showPresent(waiting);
   }
 
+  let presentTimer = null;
   function showPresent(book) {
     state.presentId = book ? book.id : null;
     $('present').hidden = !book;
+    // While she waits, the shelves are read again now and then: the book may have been opened on another screen.
+    if (book && !presentTimer) presentTimer = setTimeout(() => { presentTimer = null; loadLibrary(); }, 15000);
   }
 
   // The person closed a book for the first time: it is seen. When she was holding it out, she walks it to the shelves
