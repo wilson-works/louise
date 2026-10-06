@@ -7,8 +7,8 @@
  * The routes refuse a foreign Host, a cross-site page and a form POST; an empty list; a second start while a run is
  * going. A run gets only the fixed arguments, whatever the request body says. Stop acts only on the pid it recorded:
  * a pid named in the body is ignored, a run file whose pid is now another program is not trusted, nor is one whose
- * runner has gone quiet. findClaude reads npm's .cmd shim for the program it names; cmdLine refuses what cmd.exe
- * would expand. The real detached start (engine/research-run.js, through detach.vbs on Windows) runs the fake too.
+ * runner has gone quiet. findClaude reads npm's .cmd shim for the program it names, and never falls back to cmd.exe.
+ * The permission flags are pinned to a literal list written out here (not ARGS itself), so a later widening fails. The real detached start (engine/research-run.js, through detach.vbs on Windows) runs the fake too.
  * Hermetic: temporary folders, ports from the system.
  */
 
@@ -181,7 +181,7 @@ test('stop refuses a pid it did not record: another program under that pid, or a
   await new Promise((res) => sv.server.close(res));
 });
 
-test('findClaude: the configured path wins; npm\'s .cmd shim is read for the program it names; cmdLine refuses % and "', () => {
+test('findClaude: the configured path wins; npm\'s .cmd shim is read for the program it names; an unreadable shim is not used', () => {
   const dir = tmpdir('claude-path');
   const exe = path.join(dir, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
   write(exe, '');
@@ -198,10 +198,41 @@ test('findClaude: the configured path wins; npm\'s .cmd shim is read for the pro
 
   const unread = path.join(tmpdir('claude-shim'), 'claude.cmd');
   write(unread, '@echo off\r\nsomething-else.exe %*\r\n');
-  assert.equal(research.launcher(unread, 'win32').cmdShim, true);
-  assert.equal(research.cmdLine('C:\\Tools\\claude.cmd', ['-p', 'Louise, research my list.']), '/d /s /c ""C:\\Tools\\claude.cmd" "-p" "Louise, research my list.""');
-  assert.throws(() => research.cmdLine('C:\\Tools\\%PATH%\\claude.cmd', ['-p']), (e) => e.reason === 'no-claude');
-  assert.throws(() => research.cmdLine('C:\\Tools\\claude.cmd', ['say "hi"']), (e) => e.reason === 'no-claude');
+  assert.equal(research.launcher(unread, 'win32'), null, 'a shim naming no program is never run through cmd.exe');
+  // On the PATH it is skipped (a Claude Code in ~/.local/bin may still be found; never cmd.exe, never the shim).
+  const found = research.findClaude({ env: { PATH: path.dirname(unread) }, platform: 'win32' });
+  assert.ok(!found || (found.program !== unread && !/cmd\.exe$/i.test(found.program)));
+});
+
+test('the permission flags are exactly these (a literal list: widening any of them fails here)', () => {
+  const args = research.ARGS('HOME', 'LIBRARY');
+  assert.deepEqual(args, [
+    '-p', 'Louise, research my list.',
+    '--append-system-prompt', "Louise's dashboard started this session. Nobody is at the keyboard and nobody can answer a question. Follow the section of her CLAUDE.md headed: A run started from her dashboard.",
+    '--setting-sources', 'project,local',
+    '--permission-mode', 'acceptEdits',
+    '--permission-prompts', 'none',
+    '--add-dir', 'LIBRARY',
+    '--allowedTools', 'WebSearch', 'WebFetch', 'Agent', 'Skill',
+    'Bash(node engine/config.js)', 'Bash(node engine/config.js *)', 'Bash(node engine/requests.js *)',
+    'Bash(node engine/stage.js *)', 'Bash(node engine/library.js *)', 'Bash(node engine/fetch.js *)',
+    'Bash(node engine/run-state.js *)', 'Bash(node engine/check-citations.js *)',
+    '--disallowedTools', 'AskUserQuestion', 'CronCreate',
+    'Edit(engine/**)', 'Edit(dashboard/**)', 'Edit(CLAUDE.md)', 'Edit(subagent.md)', 'Edit(agent.json)',
+    'Edit(package.json)', 'Edit(.claude/**)', 'Edit(.git/**)', 'Edit(.gitignore)', 'Edit(louise.config.json)',
+    'Edit(state/run-tmp/**)',
+  ]);
+  const joined = args.join('\n');
+  for (const never of ['run-tmp/*)', 'dangerously', 'bypassPermissions', 'Bash(node state', 'Bash(*', 'Bash)', '"']) {
+    assert.ok(!joined.includes(never), never);
+  }
+  assert.ok(!args.includes('Bash') && !args.includes('Edit') && !args.includes('Write'), 'no bare Bash, Edit or Write');
+  const allowed = args.slice(args.indexOf('--allowedTools') + 1, args.indexOf('--disallowedTools'));
+  for (const a of allowed.filter((x) => x.startsWith('Bash('))) {
+    const m = /^Bash\(node engine\/([a-z-]+)\.js( \*)?\)$/.exec(a);
+    assert.ok(m, a);
+    assert.ok(fs.existsSync(path.join(__dirname, '..', 'engine', `${m[1]}.js`)), `${a} names a script that ships`);
+  }
 });
 
 test('the real detached start runs the fake through engine/research-run.js, and stop ends it', async (t) => {

@@ -76,9 +76,9 @@ node engine/stage.js get                         what she is doing now
 
 "Research my list" runs Claude Code on this computer, with no one at the keyboard, in her folder, told
 "Louise, research my list." It needs Claude Code installed: she finds `claude` on your PATH (on Windows, the
-`claude.cmd` that npm installs is read for the program it starts), or you can name the program in
-`louise.config.json` as `"claude": "<path>"`. Nothing you type on the page reaches that command. She runs one research
-run at a time, and Stop ends only the run she started.
+`claude.cmd` that npm installs is read for the program it starts; nothing is run through `cmd.exe` or a shell), or you
+can name the program in `louise.config.json` as `"claude": "<path>"`. Nothing you type on the page reaches that
+command. She runs one research run at a time, and Stop ends only the run she started.
 
 A run started this way can do only what her runbook needs, and asks nobody:
 
@@ -86,16 +86,21 @@ A run started this way can do only what her runbook needs, and asks nobody:
 |---|---|
 | `-p "Louise, research my list."` | one session that ends when the runbook ends |
 | `--append-system-prompt` (fixed words) | tells the session the dashboard started it, so it never asks or waits (CLAUDE.md, "A run started from her dashboard") |
+| `--setting-sources project,local` | your own `~/.claude/settings.json` is not read, so your personal allow rules and hooks do not widen what the run may do. Her skills still load. |
 | `--permission-mode acceptEdits` and `--add-dir <your library>` | it may write files only in her folder and in your library |
 | `--permission-prompts none` | anything else is refused at once, never left waiting for a person |
 | `--allowedTools WebSearch WebFetch Agent Skill` | the research itself, the skills' helpers, and the skills |
-| `--allowedTools "Bash(node engine/... *)"`, `"Bash(node state/run-tmp/*)"` | her own scripts, and the scratch scripts the research skill writes for its state and its source check |
+| `--allowedTools "Bash(node engine/<script>.js *)"` | her own shipped scripts only: config, requests, stage, library, fetch, and `run-state.js` and `check-citations.js`, which do the research skill's state updates and source check |
 | `--disallowedTools AskUserQuestion CronCreate` | no questions, and no loop that outlives the session |
+| `--disallowedTools "Edit(engine/**)" ...` | her code and settings can never be written: `engine/`, `dashboard/`, `CLAUDE.md`, `subagent.md`, `agent.json`, `package.json`, `.claude/`, `.git/`, `.gitignore`, `louise.config.json`, `state/run-tmp/` |
 
-It never gets `--dangerously-skip-permissions`. Your own Claude Code settings (your allow rules and hooks) still apply,
-as in any session of yours. The research skill's scratch scripts can run any code they hold: that is how the skill
-updates its state and checks sources, and it is the widest thing a run may do. The run's output goes to
-`state/research.log`; its pid, with a heartbeat, to `state/research-run.json`.
+So a run can write her list, her `state/` data and your library, and it can execute only scripts that shipped with
+her. It never gets `--dangerously-skip-permissions`, and it never runs a script it wrote. A page it reads on the web
+can still steer what it writes in your library, as with any research you do with AI: check the sources.
+
+Because your own settings file is left out, settings you keep there do not reach a dashboard run either. That includes
+an `apiKeyHelper` or `env` block. Sign in to Claude Code the usual way (`claude` and `/login`) and a dashboard run uses
+that sign-in. The run's output goes to `state/research.log`; its pid, with a heartbeat, to `state/research-run.json`.
 
 ## What stays on your computer
 

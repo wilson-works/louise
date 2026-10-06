@@ -8,7 +8,7 @@
  *   node engine/research-run.js <job file>
  *
  * The job file (state/research-job.json, written by research.js) holds { token, cwd, log, runFile, stateFile,
- * program, args, image, cmdLine } and nothing else: no environment, which this runner inherits instead.
+ * program, args, image } and nothing else: no environment, which this runner inherits instead.
  * It starts the program with its output appended to the log, in its own process group, and keeps the run file:
  *   { token, pid, runner, image, program, started, beat }   the heartbeat (beat) every 10 seconds while it runs
  *   + { ended, code, signal }                               when the program exits
@@ -39,10 +39,7 @@ function main() {
   try {
     out = fs.openSync(job.log, 'a');
     note(`Starting a research run: ${job.program}`);
-    const cmd = Boolean(job.cmdLine);
-    child = spawn(job.program, cmd ? [job.cmdLine] : job.args, {
-      cwd: job.cwd, detached: true, stdio: ['ignore', out, out], windowsHide: true, windowsVerbatimArguments: cmd,
-    });
+    child = spawn(job.program, job.args, { cwd: job.cwd, detached: true, stdio: ['ignore', out, out], windowsHide: true });
   } catch (e) {
     note(`The research run could not start: ${e.message}`);
     write(Object.assign(record, { ended: new Date().toISOString(), error: e.message }));

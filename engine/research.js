@@ -12,28 +12,34 @@
  *   2. On the PATH: claude.exe, then claude.cmd (npm's shim) on Windows; claude elsewhere. Then ~/.local/bin, where
  *      the native installer puts it, for a dashboard started without the person's PATH.
  *   A .cmd shim is read for the program it starts ("%dp0%\...\claude.exe" or a .js entry script) and that program is
- *   run directly. Only when a shim cannot be read does the run go through cmd.exe /d /s /c, with a command line built
- *   here from fixed, double-quoted parts (a path holding " or % is refused). Never shell: true.
- *   A .js file runs with this Node; anything else runs as it is.
+ *   run directly. A shim that names no such program is not used: nothing is ever run through cmd.exe or a shell. Name
+ *   the program in louise.config.json instead. A .js file runs with this Node; anything else runs as it is.
  *
  * The headless flags (ARGS), the narrowest set that lets her runbook run unattended:
  *   -p "Louise, research my list."     print mode: one session, no keyboard, ends when the runbook ends
  *   --append-system-prompt <fixed>     tells the session her dashboard started it, so CLAUDE.md's "A run started from
  *                                      her dashboard" rules apply (nobody to ask; the button was the yes)
+ *   --setting-sources project,local    the person's own ~/.claude/settings.json is not read, so their allow rules (and
+ *                                      hooks) do not widen this list. Measured on 2.1.263: with it, a command allowed
+ *                                      only by a user rule is refused; the user-scope skills still load.
  *   --permission-mode acceptEdits      file edits are accepted only inside the working folders: her folder (the cwd)
  *   --add-dir <the library>            and her library, where new research is written. Nothing else is writable.
  *   --permission-prompts none          anything not allowed below is refused at once, never waits for a person
  *   --allowedTools                     WebSearch, WebFetch (the research itself); Agent (the skills' scope checker,
  *                                      deep researcher, readers and distillers are subagents); Skill (marathon-
  *                                      research, marathon-research-council, distill); and Bash only for her own
- *                                      scripts: node engine/{config,requests,stage,library,fetch}.js and the run's
- *                                      own scratch scripts, node state/run-tmp/*.js (the skill writes its state
- *                                      updates and citation checker there).
- *   --disallowedTools                  AskUserQuestion (nobody is there to answer), CronCreate (a loop that outlives
- *                                      this session would wake with nobody watching: the runbook works every wave in
- *                                      this one session instead)
- * Not given: --dangerously-skip-permissions, bypassPermissions, any bare Bash, Edit or Write rule, any other folder.
- * Settings the person already has (their own allow rules and hooks) still apply, as they do in any session of theirs.
+ *                                      shipped scripts (ALLOWED_SCRIPTS), including run-state.js (the skill's state
+ *                                      file) and check-citations.js (its citation check), so the run never has to
+ *                                      write a script and execute it.
+ *   --disallowedTools                  AskUserQuestion (nobody is there to answer); CronCreate (a loop that outlives
+ *                                      this session would wake with nobody watching); and Edit on every file that is
+ *                                      code or configuration in her folder (DENY_EDIT), so the scripts allowed above
+ *                                      stay the shipped ones. A deny beats an allow and beats acceptEdits; an Edit
+ *                                      rule covers every file-writing tool (2.1.263 matches no Write(path) rule). The
+ *                                      run can write only her list and state data, and the library.
+ * Not given: --dangerously-skip-permissions, bypassPermissions, any bare Bash, Edit or Write rule, any other folder,
+ * and no rule that runs a script the session could have written. A web page the run reads can still steer what it
+ * writes in the library and which of these tools it calls; it cannot run code of its own.
  *
  * Starting (start): refused when Claude Code is not found (409 no-claude), there is no library folder (409
  * no-library), her list is empty (409 empty) or a run is going (409 running). Otherwise it writes a job file and starts
@@ -50,6 +56,7 @@
  * elsewhere. Her stage goes to idle with a plain note. Nothing in a request names a pid.
  *
  *   findClaude({ claude, env, platform, home })   { program, args, image, via } or null
+ *   ALLOWED_SCRIPTS, DENY_EDIT                     the scripts a run may execute, the paths it may never write
  *   ARGS(home, library)                            the fixed arguments
  *   status(home, opts)  start(opts)  stop(opts)    opts { home, roots, writeRoot, claude, launch, now }
  *   runFile(home), logFile(home)
@@ -64,7 +71,7 @@ const stage = require('./stage');
 
 const PROMPT = 'Louise, research my list.';
 const SYSTEM_NOTE = "Louise's dashboard started this session. Nobody is at the keyboard and nobody can answer a question. " +
-  "Follow \"A run started from her dashboard\" in her CLAUDE.md.";
+  'Follow the section of her CLAUDE.md headed: A run started from her dashboard.';
 const BEAT_MS = 10 * 1000;
 const STALE_BEAT_MS = 60 * 1000;
 const STARTING_MS = 30 * 1000;
@@ -88,21 +95,25 @@ function writeJson(file, obj) {
   try { fs.renameSync(tmp, file); } catch (_) { fs.writeFileSync(file, `${JSON.stringify(obj, null, 2)}\n`, 'utf8'); fs.rmSync(tmp, { force: true }); }
 }
 
+// The only commands a run may execute: her own shipped scripts, run from her folder.
+const ALLOWED_SCRIPTS = ['config', 'requests', 'stage', 'library', 'fetch', 'run-state', 'check-citations'];
+// Paths in her folder a run may never write (relative to her folder, the run's working folder).
+const DENY_EDIT = ['engine/**', 'dashboard/**', 'CLAUDE.md', 'subagent.md', 'agent.json', 'package.json', '.claude/**',
+  '.git/**', '.gitignore', 'louise.config.json', 'state/run-tmp/**'];
+
 /** The fixed arguments for a run. Only her library folder varies, and it comes from her own config. */
 function ARGS(home, library) {
-  const scratch = ['state/run-tmp/*', `${home}/state/run-tmp/*`.split(path.sep).join('/')];
-  if (path.sep === '\\') scratch.push(`${home}\\state\\run-tmp\\*`);
   return [
     '-p', PROMPT,
     '--append-system-prompt', SYSTEM_NOTE,
+    '--setting-sources', 'project,local',
     '--permission-mode', 'acceptEdits',
     '--permission-prompts', 'none',
     '--add-dir', library,
-    '--allowedTools', 'WebSearch', 'WebFetch', 'Agent', 'Skill',
-    'Bash(node engine/config.js)', 'Bash(node engine/config.js *)', 'Bash(node engine/requests.js *)',
-    'Bash(node engine/stage.js *)', 'Bash(node engine/library.js *)', 'Bash(node engine/fetch.js *)',
-    ...scratch.map((s) => `Bash(node ${s})`),
+    '--allowedTools', 'WebSearch', 'WebFetch', 'Agent', 'Skill', 'Bash(node engine/config.js)',
+    ...ALLOWED_SCRIPTS.map((n) => `Bash(node engine/${n}.js *)`),
     '--disallowedTools', 'AskUserQuestion', 'CronCreate',
+    ...DENY_EDIT.map((d) => `Edit(${d})`),
   ];
 }
 
@@ -117,8 +128,7 @@ function launcher(file, platform) {
     const named = [...text.matchAll(/"%dp0%\\([^"%]+\.(?:exe|js|cjs|mjs))"/gi)].map((m) => path.join(path.dirname(file), m[1]));
     const target = named.reverse().find(isFile);
     if (target) { const l = launcher(target, platform); if (l) return Object.assign(l, { via: file }); }
-    if (/["%]/.test(file)) return null;
-    return { program: process.env.ComSpec || 'cmd.exe', args: [file], image: 'cmd.exe', via: file, cmdShim: true };
+    return null; // a shim that names no program is never run through cmd.exe: name the program in louise.config.json
   }
   return { program: file, args: [], image: path.basename(file), via: file };
 }
@@ -139,12 +149,6 @@ function findClaude(opts) {
     }
   }
   return null;
-}
-
-/** The command line for cmd.exe /d /s /c when a .cmd shim could not be read: every part double-quoted. */
-function cmdLine(shim, args) {
-  for (const a of [shim, ...args]) if (/["%\r\n]/.test(a)) throw refuse(409, 'no-claude', 'Claude Code was found, but in a place I cannot start safely. Name its program in louise.config.json as "claude".');
-  return `/d /s /c "${[shim, ...args].map((a) => `"${a}"`).join(' ')}"`;
 }
 
 /** The image name of a running pid ("claude.exe", "node"), or null when there is no such process. */
@@ -233,8 +237,7 @@ async function start(opts) {
   const args = ARGS(home, o.writeRoot);
   const job = {
     token, cwd: home, log: logFile(home), runFile: runFile(home), stateFile: stage.stageFile(home),
-    program: found.program, args: found.cmdShim ? [] : found.args.concat(args), image: found.image,
-    cmdLine: found.cmdShim ? cmdLine(found.args[0], args) : null,
+    program: found.program, args: found.args.concat(args), image: found.image,
   };
   writeJson(runFile(home), { starting: true, token, at: new Date().toISOString() });
   stage.set(stage.stageFile(home), 'researching', { note: 'Getting ready' });
@@ -270,4 +273,4 @@ function stop(opts) {
   return { running: alive(run.pid) && sameImage(imageOf(run.pid), run.image) };
 }
 
-module.exports = { PROMPT, ARGS, findClaude, launcher, cmdLine, current, status, start, stop, runFile, logFile, jobFile, imageOf, SESSION_ENV, BEAT_MS };
+module.exports = { PROMPT, ARGS, ALLOWED_SCRIPTS, DENY_EDIT, findClaude, launcher, current, status, start, stop, runFile, logFile, jobFile, imageOf, SESSION_ENV, BEAT_MS };

@@ -108,7 +108,7 @@ Run `/marathon-research --queue <the list file from step 0>`, with the skill's p
 |---|---|
 | `<research-root>` | the library |
 | `<state-dir>` | the library (so the state file is `<library>/marathon-research-state.json`, which her dashboard also reads) |
-| `<temp-dir>` | `state/run-tmp` in her folder |
+| `<temp-dir>` | `state/run-tmp` in her folder (in a run started from her dashboard, nothing is written there: see that section) |
 | `<project-md>` | none, unless the person names a file |
 
 When registering the skill's loop (its Phase 1, step 7), add one line to the loop prompt: "Also read Louise's
@@ -192,13 +192,25 @@ tells the session so at the start. Run the runbook above, with these changes. He
   answered fails its scope check onto the "Needs a sharper question" shelf, as in a run.
 - **No settings changes.** Skip marathon-research's pre-flight that edits the settings file (its Phase 1, Step 3).
   The dashboard already gave the run what it may use: the web, subagents, the skills, her own scripts, and writing
-  in her folder and the library. A step that is refused anyway is skipped and named in the run summary book.
+  her list, her `state/` data and the library. Her code and settings files cannot be written. A step that is refused
+  anyway is skipped and named in the run summary book.
 - **One session, no loop.** Do not register the skill's loop (its Phase 1, Step 7). Work every wave in this session,
   one after another (its Phase 2 for each topic), then its Phase 4, then the reading room, the red pen and shelving.
-- **Never stop another program.** Skip the process clean-up in the skill's memory check.
-- **Her scripts, exactly as written.** Run them from her folder with the relative paths in this file
-  (`node engine/stage.js set ...`). The skill's scratch scripts go in `state/run-tmp/` and run as
-  `node state/run-tmp/<file>.js`.
+- **No memory check.** Skip the skill's memory check and its process clean-up (Phase 2, Step 1, and 3c). There is no
+  command for them in this run, and a run never stops another program.
+- **Her scripts only, never a script of the run's own.** The run may execute only her shipped scripts, from her
+  folder, with the relative paths in this file (`node engine/stage.js set ...`). Where marathon-research writes a
+  temporary script, use hers instead:
+  - **The state file** (its "temp JS file pattern", Phase 1 Step 5 and every state update):
+    `node engine/run-state.js set '<json object>'` merges keys into `<library>/marathon-research-state.json`
+    (creating it), `node engine/run-state.js wave '<json object>'` puts in or replaces one wave entry (matched by its
+    `slug`), and `node engine/run-state.js get` prints it. Give the JSON in single quotes.
+  - **The citation check** (Phase 2, Step 7): `node engine/check-citations.js <library>/<date>-<slug>` runs the
+    skill's own validator and prints `CLAIMS:<n> FLAGGED:<m>`, then each flagged line as `<file>:<line>: <text>`.
+    When it flags any line, move the topic to `flagged/` and write `_validation-report.md` from those lines, as the
+    skill says.
+  - Everything else the skill writes (the brief, the reports, `sources.md`, `meta.json`, `INDEX.md`, `_index.md`, the
+    cards, the run summary book) is written with the file tools, in the library.
 - **Stopped from the dashboard.** The "Stop" button ends the session and sets her stage to idle. Anything already on
   the shelves stays there.
 
