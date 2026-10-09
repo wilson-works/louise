@@ -393,7 +393,7 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
 .flight {
   position: absolute; left: 0; top: 0; width: 16px; height: 50px; margin: -25px 0 0 -8px; border-radius: 2px;
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.12) 35%, rgba(0, 0, 0, 0.25)), var(--spine);
-  box-shadow: inset 0 3px 0 -1px var(--lz-gilt-400), inset 0 -3px 0 -1px var(--lz-gilt-400), 0 6px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 1px var(--lz-gilt-400), 0 6px 12px rgba(0, 0, 0, 0.5);
   will-change: transform, opacity;
 }
 
