@@ -28,9 +28,10 @@
 //   /api/research/stop. The start button stays focusable when it cannot be used (aria-disabled) and says why beside
 //   it; starting and stopping are announced politely.
 // - A run that stopped before it finished (/api/research's unfinished): the bar says "My last research run stopped at
-//   topic n of of before I finished." with "Pick up where I left off" (posts /api/research/resume: a run over just the
-//   topics it did not finish). After a crash that is the one button, and the request slip points to it instead of
-//   asking for a question; after Stop, "Research my list" stays beside it.
+//   topic n of of before I finished." ("... ended early at topic n of of." when Claude Code ended with an error) with
+//   "Pick up where I left off" (posts /api/research/resume: a run over just the topics it did not finish). After a
+//   crash or an early end that is the one button, and the request slip points to it instead of asking for a
+//   question; after Stop, "Research my list" stays beside it.
 // - The open book: a modal dialog. It opens on the Summary card page when the book has one (card first), flips with
 //   the buttons, the contents list or the arrow keys, and renders each page with md.js (escaped, then formatted).
 // - Reduced motion (or the pause button) stops the scene motion, the flights and the page turns.
@@ -527,7 +528,7 @@
     // Her last run stopped before it finished: she says where, and "Pick up where I left off" researches just the
     // topics it left. After a crash that is the one way on; after Stop, "Research my list" stays beside it.
     const left = st && !st.running && st.unfinished && st.unfinished.left > 0 ? st.unfinished : null;
-    const said = left ? fmt(researchLine('interrupted'), { n: left.n, of: left.of }) : '';
+    const said = left ? fmt(researchLine(left.why === 'ended-early' ? 'endedEarly' : 'interrupted'), { n: left.n, of: left.of }) : '';
     const saidEl = $('run-said');
     if (saidEl.textContent !== said) saidEl.textContent = said;
     saidEl.hidden = !said;

@@ -4,7 +4,8 @@
  * resume.test.js — engine/resume.js picks the topics a stopped run did not finish, so "Pick up where I left off"
  * researches exactly those: a topic is finished when its meta.json says complete (the wave's own status does not
  * decide); one set aside (flagged/) or failed (failed/) in this run is not researched again; a draft and a topic never
- * reached are; a finished book from an earlier run does not count; the run's list is the one taken after it started;
+ * reached are; a finished book from an earlier run does not count, nor, without the run's state, one whose meta.json
+ * was written before the run started (earlier the same day); the run's list is the one taken after it started;
  * the pick-up list keeps each request's words and request time line for line, in order, and the next take takes it
  * before her list. Fixed dates, so nothing depends on today. Hermetic: temporary folders only.
  */
@@ -89,6 +90,27 @@ test('without the run\'s state, the same topics are found by their slug or their
   fs.utimesSync(state, before, before); // written before this run started: an earlier run's
   assert.deepEqual(pickup.leftovers(opts).left, [4, 5, 6]);
   fs.rmSync(state);
+  assert.deepEqual(pickup.leftovers(opts).left, [4, 5, 6]);
+});
+
+test('without the run\'s state, a finished book counts only when its meta.json was written after the run started', () => {
+  const { lib, opts } = stoppedRun();
+  fs.rmSync(path.join(lib.root, 'marathon-research-state.json'));
+  // Topic 7 was asked again: an earlier run finished it at 20:00 the same day, three hours before this run started.
+  const folder = path.join(lib.root, '2026-10-08-sourdough-starter-care');
+  write(path.join(folder, '00-brief.md'), '# Scope Brief: Sourdough starter care\n');
+  write(path.join(folder, 'meta.json'), JSON.stringify({ title: 'Sourdough starter care', status: 'complete' }));
+  const earlier = new Date(Date.parse(STARTED) - 3 * 60 * 60 * 1000);
+  fs.utimesSync(path.join(folder, 'meta.json'), earlier, earlier);
+  assert.deepEqual(pickup.leftovers(opts).left, [4, 5, 6], 'the earlier book is not this run\'s');
+  // Written after this run started, the same book is this run's.
+  const later = new Date(Date.parse(STARTED) + 60 * 1000);
+  fs.utimesSync(path.join(folder, 'meta.json'), later, later);
+  assert.deepEqual(pickup.leftovers(opts).left, [4, 5]);
+  // The same holds in the marathons/ layout.
+  fs.renameSync(folder, path.join(lib.root, 'marathons', '2026-10-08-sourdough-starter-care'));
+  assert.deepEqual(pickup.leftovers(opts).left, [4, 5]);
+  fs.utimesSync(path.join(lib.root, 'marathons', '2026-10-08-sourdough-starter-care', 'meta.json'), earlier, earlier);
   assert.deepEqual(pickup.leftovers(opts).left, [4, 5, 6]);
 });
 

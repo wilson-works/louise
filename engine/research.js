@@ -63,18 +63,22 @@
  *
  * Is a run going (current): the run file is there, not ended, its heartbeat is under a minute old, the recorded pid is
  * alive, and (checked for start and stop) that pid is still the program that was started (its image name). A run file
- * whose runner has gone quiet is not trusted: stop never acts on a pid it cannot vouch for.
+ * whose runner has gone quiet is not trusted: stop never acts on a pid it cannot vouch for. When a pid's image cannot
+ * be read (tasklist or ps timed out), start and resume count the run as going, and stop does not act.
  * Stopping (stop): only the recorded pid, and its children: taskkill /PID <pid> /T /F on Windows, the process group
  * elsewhere. Her stage goes to idle with a plain note. Nothing in a request names a pid.
  *
  * A run that stopped before it finished (notice, on every status and start): the run file says a run is going, its
  * heartbeat is over a minute old, its runner is gone (that pid is not alive, is this server, or is now some other
- * program than Node) and so is the program it started (not alive, or now another program). Such a run was
- * interrupted (the office restarted, the computer shut down): the run file is marked ended at its last heartbeat, with
+ * program than Node) and so is the program it started (not alive, or now another program). A pid whose image cannot be
+ * read is never called another program. Such a run was interrupted (the office restarted, the computer shut down):
+ * the run file is marked ended at its last heartbeat, with
  * "interrupted" set to when she noticed; her stage goes to idle; and state/research-left.json records the topics it
  * did not finish (engine/resume.js has the rule: a finished topic has its meta.json). A run stopped with Stop records
- * the same. While that record is the last run's and names a topic left, status says so (unfinished), and a plain
- * start is refused after an interruption (409 interrupted): "Pick up where I left off" (resume) comes first.
+ * the same. So does a run whose program ended by itself with an error code while her runner lived (the account's
+ * usage limit, reached mid-run): notice records it once, as "ended-early". While that record is the last run's and
+ * names a topic left, status says so (unfinished), and a plain start is refused after an interruption or an early end
+ * (409 interrupted): "Pick up where I left off" (resume) comes first.
  * Picking up (resume): the left topics, word for word with their request times and in their order, are written to
  * requests/resume.md, which the run's own `take` takes before her list (engine/requests.js); then a run starts as
  * above, with the same fixed arguments. Requests added since stay on her list for the run after.
@@ -85,7 +89,8 @@
  *   status(opts)  start(opts)  stop(opts)  resume(opts)
  *                                                  opts { home, roots, writeRoot, claude, launch, hub, homeDir, now }
  *                                                  (hub, homeDir: where skills.js looks, for tests)
- *   notice(opts)                                   marks an interrupted run as above; returns its run file or null
+ *   notice(opts)                                   marks an interrupted run, or records what a run that ended early
+ *                                                  left, as above; returns its run file or null
  *   runFile(home), logFile(home), leftFile(home)
  */
 
@@ -253,10 +258,16 @@ const sameImage = (a, b) => {
   const y = String(b || '').toLowerCase().replace(/\.exe$/, '');
   return Boolean(x && y) && (x === y || (x.length >= 15 && y.startsWith(x)) || (y.length >= 15 && x.startsWith(y)));
 };
+/** This live pid is now plainly another program than `image`. One whose image cannot be read (tasklist or ps timed
+ * out, or could not run) is not: a hiccup never makes a live run look gone. */
+function otherProgram(pid, image) {
+  const now = imageOf(pid);
+  return now !== null && !sameImage(now, image);
+}
 
 /**
  * The run that is going, or null. { pid, image, started, starting } . `strict` also checks the pid is still the program
- * that was started (one tasklist or ps call), as start and stop do.
+ * that was started (one tasklist or ps call), as stop does: it acts only on a pid it can vouch for.
  */
 function current(home, strict, now) {
   const at = now || Date.now();
@@ -269,15 +280,22 @@ function current(home, strict, now) {
   return { pid: r.pid, image: r.image, started: r.started, starting: false };
 }
 
+/** For start and resume: a run is going unless its pid is now plainly another program, so a hiccup never starts a second. */
+function going(home) {
+  const run = current(home, false);
+  return Boolean(run) && (run.starting || !otherProgram(run.pid, run.image));
+}
+
 /** The runner (engine/research-run.js, run by this Node) is gone: not alive, this server's own pid, or another program. */
 function runnerGone(r) {
   if (!Number.isInteger(r.runner) || r.runner === process.pid || !alive(r.runner)) return true;
-  return !sameImage(imageOf(r.runner), path.basename(process.execPath));
+  return otherProgram(r.runner, path.basename(process.execPath));
 }
 
 /**
  * The topics the run in this run file left unfinished (engine/resume.js), recorded in state/research-left.json as
- * { token, why: interrupted|stopped, at, noticed, list, n, of, left }. Nothing is recorded when it took no list.
+ * { token, why: interrupted|stopped|ended-early, at, noticed, list, n, of, left }. Nothing is recorded when it took no
+ * list.
  */
 function recordLeft(o, r, why, at) {
   if (!o.writeRoot || !r || !r.token || !r.started) return null;
@@ -297,20 +315,35 @@ function lastLeft(home) {
   const r = readJson(runFile(home));
   const l = readJson(leftFile(home));
   if (!r || !l || typeof l !== 'object' || !r.ended || !l.token || l.token !== r.token) return null;
-  if (!['interrupted', 'stopped'].includes(l.why) || !pickup.LIST_RE.test(String(l.list))) return null;
+  if (!['interrupted', 'stopped', 'ended-early'].includes(l.why) || !pickup.LIST_RE.test(String(l.list))) return null;
   if (!Number.isInteger(l.of) || !Number.isInteger(l.n) || !Array.isArray(l.left) || !l.left.length) return null;
   return l.left.every((i) => Number.isInteger(i) && i >= 0 && i < l.of) ? l : null;
 }
 
-/** A run that stopped without saying so (its runner and its program are gone): marked ended, its leftovers recorded. */
+/**
+ * A run whose program ended by itself with an error code while her runner lived (the account's usage limit, reached
+ * mid-run): its leftovers are recorded once, as for an interrupted run. Stop's own record is never replaced.
+ */
+function endedEarly(o, r) {
+  if (r.stopped || r.interrupted || r.code === 0 || !r.token) return null;
+  const had = readJson(leftFile(o.home));
+  if (had && had.token === r.token) return null; // recorded already, by this or by Stop
+  return recordLeft(o, r, 'ended-early', r.ended) ? r : null;
+}
+
+/**
+ * A run that stopped without saying so (its runner and its program are gone): marked ended, its leftovers recorded.
+ * A run that ended early (endedEarly) has its leftovers recorded too.
+ */
 function notice(opts) {
   const o = opts || {};
   const r = readJson(runFile(o.home));
-  if (!r || typeof r !== 'object' || r.ended || r.starting || !Number.isInteger(r.pid)) return null;
+  if (!r || typeof r !== 'object' || r.starting || !Number.isInteger(r.pid)) return null;
+  if (r.ended) return endedEarly(o, r);
   const at = o.now || Date.now();
   if (at - Date.parse(r.beat) < STALE_BEAT_MS) return null; // the runner wrote its heartbeat a moment ago
   if (!runnerGone(r)) return null;
-  if (alive(r.pid) && sameImage(imageOf(r.pid), r.image)) return null; // the program is still working
+  if (alive(r.pid) && !otherProgram(r.pid, r.image)) return null; // the program is still working, or can't be told apart
   const last = r.beat || r.started;
   writeJson(runFile(o.home), Object.assign({}, r, { ended: last, interrupted: new Date(at).toISOString() }));
   recordLeft(o, r, 'interrupted', last);
@@ -369,9 +402,9 @@ async function start(opts) {
   if (!found) throw refuse(409, 'no-claude', 'I need Claude Code on this computer to do research. Install it, or name its program in louise.config.json as "claude".');
   if (!o.writeRoot) throw refuse(409, 'no-library', 'I have no library folder yet. Name one in louise.config.json, then try again.');
   const left = o.resume ? null : lastLeft(home);
-  if (left && left.why === 'interrupted') throw refuse(409, 'interrupted', 'My last run stopped partway. Press "Pick up where I left off" first.');
+  if (left && left.why !== 'stopped') throw refuse(409, 'interrupted', 'My last run stopped partway. Press "Pick up where I left off" first.');
   if (!requests.list(requests.queueFile(home)).length && !requests.list(requests.resumeFile(home)).length) throw refuse(409, 'empty', 'Nothing on my list yet.');
-  if (current(home, true)) throw refuse(409, 'running', "I'm already working on my list.");
+  if (going(home)) throw refuse(409, 'running', "I'm already working on my list.");
   const have = skills.ensure({ home, hub: o.hub !== undefined ? o.hub : findHub(home), homeDir: o.homeDir });
   if (have.missing.length) {
     throw refuse(409, 'no-skill', `I need the ${have.missing[0]} skill installed to research. Install it in your Hub's .claude/skills or in ~/.claude/skills, then try again.`);
@@ -420,15 +453,15 @@ function stop(opts) {
 }
 
 /**
- * Pick up where she left off: one run over exactly the topics her last run did not finish (it was interrupted, or
- * stopped with Stop). Resolves as start does, with resumed: <how many topics>; throws 409 nothing-left when there are
- * none, and start's refusals otherwise.
+ * Pick up where she left off: one run over exactly the topics her last run did not finish (it was interrupted, ended
+ * early, or was stopped with Stop). Resolves as start does, with resumed: <how many topics>; throws 409 nothing-left
+ * when there are none, and start's refusals otherwise.
  */
 async function resume(opts) {
   const o = opts || {};
   const home = o.home;
   notice(o);
-  if (current(home, true)) throw refuse(409, 'running', "I'm already working on my list.");
+  if (going(home)) throw refuse(409, 'running', "I'm already working on my list.");
   const nothing = () => refuse(409, 'nothing-left', "There's nothing left from my last run to pick up.");
   const left = lastLeft(home);
   if (!left) throw nothing();
