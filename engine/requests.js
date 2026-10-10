@@ -16,8 +16,16 @@
  *   add(file, { topic, framing }, now)  appends one request: { queued: <how many are on the list now> }.
  *                                       Throws (status 400) on a topic it cannot use, or when the list is full.
  *   list(file)                          [{ topic, framing, at }], oldest first
+ *   remove(file, { topic, at })         takes one request off the list: the first with that topic and request time, as
+ *                                       list gives them. { removed: true, queued: <how many are left> }. Throws (status
+ *                                       404) when it is not on the list any more. Every other line stays as written.
  *   take(file, now)                     moves the list to requests/taken/queue-<time>.md for a run to work through,
- *                                       leaving an empty list; returns that file, or null when the list was empty
+ *                                       leaving an empty list; returns that file, or null when the list was empty.
+ *                                       When requests/resume.md holds requests (the pick-up list her dashboard writes for
+ *                                       "Pick up where I left off", engine/resume.js), take moves that one instead and
+ *                                       leaves her list as it is, for the run after.
+ *   split(text)                         { head, blocks: [{ topic, at, body, raw }] }: the lines before the first topic,
+ *                                       then each request with its own lines exactly as written (raw)
  *
  * CLI (from her folder):
  *   node engine/requests.js list
@@ -34,25 +42,33 @@ const LIST_MAX = 100;
 const HEADER = '# Research Queue\n';
 
 const queueFile = (home) => path.join(home, 'requests', 'queue.md');
+const resumeFile = (home) => path.join(home, 'requests', 'resume.md');
 const bad = (message) => Object.assign(new Error(message), { status: 400 });
 
 function read(file) {
   try { return fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''); } catch (_) { return ''; }
 }
 
-/** The requests in a queue file, oldest first. */
-function parse(text) {
-  const out = [];
+/** A queue file's text: the lines before the first topic (head), then each request with its own lines (raw). */
+function split(text) {
+  const blocks = [];
+  let head = '';
   let cur = null;
-  for (const line of String(text).split(/\r?\n/)) {
+  for (const line of String(text).split(/(?<=\n)/)) {
     const h = /^##\s+(.+?)\s*$/.exec(line);
-    if (h) { cur = { topic: h[1], body: [], at: null }; out.push(cur); continue; }
-    if (!cur) continue;
+    if (h) { cur = { topic: h[1], body: [], at: null, raw: [line] }; blocks.push(cur); continue; }
+    if (!cur) { head += line; continue; }
+    cur.raw.push(line);
     const at = /^<!--\s*requested\s+(\S+)\s*-->$/.exec(line.trim());
     if (at && !cur.at) { cur.at = at[1]; continue; }
-    cur.body.push(line.replace(/^\\#/, '#'));
+    cur.body.push(line.replace(/\r?\n$/, '').replace(/^\\#/, '#'));
   }
-  return out.map((r) => ({ topic: r.topic, framing: r.body.join('\n').trim(), at: r.at }));
+  return { head, blocks };
+}
+
+/** The requests in a queue file, oldest first. */
+function parse(text) {
+  return split(text).blocks.map((r) => ({ topic: r.topic, framing: r.body.join('\n').trim(), at: r.at }));
 }
 
 function list(file) { return parse(read(file)); }
@@ -78,22 +94,41 @@ function add(file, req, now) {
   return { queued: have.length + 1 };
 }
 
-/** Move the list aside for a run to work through. The list file is left empty, never deleted. */
+/** Take one request off the list (the person's "Remove" on her dashboard). Every other line is kept as written. */
+function remove(file, req) {
+  const r = req || {};
+  if (typeof r.topic !== 'string' || !r.topic || r.topic.length > TOPIC_MAX) throw bad('Say which request to take off the list.');
+  if (r.at != null && typeof r.at !== 'string') throw bad('Say which request to take off the list.');
+  const { head, blocks } = split(read(file));
+  const i = blocks.findIndex((b) => b.topic === r.topic && (b.at || null) === (r.at || null));
+  if (i < 0) throw Object.assign(new Error("That one isn't on my list any more."), { status: 404 });
+  const rest = blocks.filter((_, k) => k !== i);
+  const text = `${head}${rest.map((b) => b.raw.join('')).join('')}`.replace(/\s+$/, '');
+  fs.writeFileSync(file, rest.length || text ? `${text}\n` : HEADER, 'utf8');
+  return { removed: true, queued: rest.length };
+}
+
+/**
+ * Move the list aside for a run to work through. The list file is left empty, never deleted. A pick-up list waiting
+ * beside it (requests/resume.md) goes first, and her list stays as it is for the run after.
+ */
 function take(file, now) {
-  const have = list(file);
+  const pick = path.join(path.dirname(file), 'resume.md');
+  const from = list(pick).length ? pick : file;
+  const have = list(from);
   if (!have.length) return null;
   const stamp = new Date(now || Date.now()).toISOString().replace(/[:.]/g, '-');
   const dir = path.join(path.dirname(file), 'taken');
   fs.mkdirSync(dir, { recursive: true });
   let to = path.join(dir, `queue-${stamp}.md`);
   for (let n = 2; fs.existsSync(to); n += 1) to = path.join(dir, `queue-${stamp}-${n}.md`);
-  fs.copyFileSync(file, to);
-  if (read(to) !== read(file)) throw new Error(`The copy of the list at ${to} does not match; the list was left as it is.`);
-  fs.writeFileSync(file, HEADER, 'utf8');
+  fs.copyFileSync(from, to);
+  if (read(to) !== read(from)) throw new Error(`The copy of the list at ${to} does not match; the list was left as it is.`);
+  fs.writeFileSync(from, HEADER, 'utf8');
   return to;
 }
 
-module.exports = { queueFile, add, list, take, parse, LIST_MAX };
+module.exports = { queueFile, resumeFile, add, list, remove, take, parse, split, HEADER, LIST_MAX };
 
 if (require.main === module) {
   const config = require('./config');

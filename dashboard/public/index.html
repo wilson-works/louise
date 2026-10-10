@@ -5,7 +5,8 @@
   her to fetch from) and the open book (a dialog whose pages you flip). Her desk also has "Ask me what we already have"
   (the same fetch as the Library's search, above the fold), "Research my list" and "Stop" by her list, and a book opened
   by a question asks "Was this the book you needed?". When she has finished a book you have not opened yet, she holds it
-  out and "Show me the book" opens it. Every line she says comes from /brand/copy.json;
+  out and "Show me the book" opens it. When her last run stopped before it finished, the bar by her list says so, with
+  "Pick up where I left off"; each request on her list has a small "Remove". Every line she says comes from /brand/copy.json;
   elements marked data-copy are filled from it by app.js. No build step, no framework, nothing loaded from elsewhere.
 -->
 <html lang="en">
@@ -87,14 +88,16 @@
             <button type="submit" class="btn btn-ink" id="req-submit" data-copy="requests.submit">Add to my list</button>
             <p class="slip-status" id="req-status" role="status"></p>
           </div>
-          <p class="slip-how" data-copy="requests.howToStart"></p>
+          <p class="slip-how" id="req-how" data-copy="requests.howToStart"></p>
           <div class="queue" id="queue-wrap" hidden>
             <h4 class="queue-title" id="queue-title">On her list</h4>
             <ol class="queue-list" id="queue" aria-labelledby="queue-title"></ol>
           </div>
           <div class="runbar" id="runbar">
+            <p class="runbar-said" id="run-said" role="status" hidden></p>
             <div class="runbar-actions">
               <button type="button" class="btn btn-ink" id="run-start" aria-describedby="run-note" data-copy="research.start">Research my list</button>
+              <button type="button" class="btn btn-ink" id="run-resume" hidden aria-describedby="run-said run-note" data-copy="research.resume">Pick up where I left off</button>
               <button type="button" class="btn btn-line" id="run-stop" hidden data-copy="research.stop">Stop</button>
             </div>
             <p class="runbar-note" id="run-note"></p>

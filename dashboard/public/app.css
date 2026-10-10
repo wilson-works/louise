@@ -197,9 +197,23 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
 .slip-how { font-size: var(--lz-text-sm); color: var(--lz-on-paper-muted); }
 .queue { border-top: 1px solid rgba(110, 86, 66, 0.35); padding-top: var(--lz-space-3); }
 .queue-title { font-size: var(--lz-text-md); color: var(--lz-on-paper); }
-.queue-list { margin: var(--lz-space-1) 0 0; padding-left: 1.4em; color: var(--lz-on-paper); font-size: var(--lz-text-sm); }
-/* Research my list: start (and Stop while a run is going), with the reason beside it when it cannot start. */
+/* Every request on her list, each with a small Remove. A long list scrolls in its own box, so the bar below stays near. */
+.queue-list {
+  margin: var(--lz-space-1) 0 0; padding: 6px 6px 6px 1.4em; color: var(--lz-on-paper); font-size: var(--lz-text-sm);
+  max-height: 17em; overflow-y: auto; overscroll-behavior: contain;
+}
+.queue-list li + li { margin-top: 2px; }
+.queue-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lz-space-1) var(--lz-space-2); min-height: 40px; }
+.queue-topic { flex: 1 1 10em; min-width: 0; overflow-wrap: anywhere; }
+.queue-ask { flex: 1 1 100%; font-family: var(--lz-font-title); font-style: italic; }
+.btn.btn-small { min-height: 36px; padding: 0 var(--lz-space-3); font-size: var(--lz-text-sm); font-weight: 600; }
+/* Research my list: start (and Stop while a run is going), with the reason beside it when it cannot start. When her last
+ * run stopped before it finished, a plain line above the buttons says where, beside "Pick up where I left off". */
 .runbar { display: grid; gap: var(--lz-space-2); border-top: 1px solid rgba(110, 86, 66, 0.35); padding-top: var(--lz-space-3); }
+.runbar-said {
+  padding: var(--lz-space-2) var(--lz-space-3); border: 1px solid var(--lz-paper-line); border-radius: var(--lz-radius-md);
+  background: rgba(110, 86, 66, 0.08); font-family: var(--lz-font-title); color: var(--lz-on-paper);
+}
 .runbar-actions { display: flex; flex-wrap: wrap; gap: var(--lz-space-2); }
 .runbar-note { font-size: var(--lz-text-sm); color: var(--lz-on-paper); }
 .runbar-note:empty { display: none; }

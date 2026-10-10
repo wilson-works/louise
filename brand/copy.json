@@ -1,5 +1,5 @@
 {
-  "_contract": "Every line Louise says on her dashboard and at her office door. A list holds variants: the page picks one. The page fills {topic} (the topic she is on, or the words searched for) and {n} (a request's place on her list). A line with a placeholder is used only when the page has that value; every list also has lines without one. Keys that start with _ are notes, not copy. The rules these lines pass are in brand/VOICE.md.",
+  "_contract": "Every line Louise says on her dashboard and at her office door. A list holds variants: the page picks one. The page fills {topic} (the topic she is on, or the words searched for) and {n} (a request's place on her list; in research.interrupted, the topic her last run stopped at, of {of}). A line with a placeholder is used only when the page has that value; every list also has lines without one. Keys that start with _ are notes, not copy. The rules these lines pass are in brand/VOICE.md.",
   "name": "Louise",
   "title": "The Research Librarian",
   "line": "Researches your questions with a source for every fact, and keeps what she finds on shelves you can browse.",
@@ -124,16 +124,28 @@
       "Got it. It's on my list.",
       "Noted. I'll look it up when you set me to work."
     ],
-    "howToStart": "Start me with \"Research my list\" below, or say \"Louise, research my list.\" in a chat on your Hub."
+    "howToStart": "Start me with \"Research my list\" below, or say \"Louise, research my list.\" in a chat on your Hub.",
+    "_pickUp": "Shown in place of howToStart while her last run waits to be picked up, so nobody has to write to her about it.",
+    "pickUp": "My last run stopped partway. Press \"Pick up where I left off\" below to finish it.",
+    "_remove": "The small button by each request on her list. It asks once (removeAsk, with removeYes and removeNo) before the request comes off.",
+    "remove": "Remove",
+    "removeAsk": "Take this off my list?",
+    "removeYes": "Yes, remove it",
+    "removeNo": "Keep it",
+    "removed": "Done. It's off my list.",
+    "removeGone": "That one isn't on my list any more."
   },
   "research": {
-    "_": "The buttons by her list that start and stop a research run from her dashboard. reasons are keyed by the server's reason codes.",
+    "_": "The buttons by her list that start and stop a research run from her dashboard. reasons are keyed by the server's reason codes. interrupted is said when her last run stopped before it finished, with resume, which researches just the topics it did not finish.",
     "start": "Research my list",
     "stop": "Stop",
+    "resume": "Pick up where I left off",
+    "interrupted": "My last research run stopped at topic {n} of {of} before I finished.",
     "started": [
       "Off I go. Watch my desk to see where I've got to.",
       "Starting on my list now. My desk shows each step."
     ],
+    "resumed": "Picking up where I left off. Watch my desk to see where I've got to.",
     "stopped": "I've stopped. Anything I finished is on the shelves.",
     "failed": "That didn't reach my desk. Is my dashboard still running?",
     "reasons": {
@@ -143,7 +155,9 @@
       "no-library": "I need a folder for my library first. Name one in louise.config.json.",
       "not-running": "I'm not working on my list right now.",
       "starting": "I'm only just starting. Try again in a moment.",
-      "not-started": "I couldn't start. The details are in my log, in state/research.log."
+      "not-started": "I couldn't start. The details are in my log, in state/research.log.",
+      "interrupted": "My last run stopped partway. Press \"Pick up where I left off\" first.",
+      "nothing-left": "There's nothing left from my last run to pick up."
     }
   },
   "deskAsk": {

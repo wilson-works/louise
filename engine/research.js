@@ -11,9 +11,15 @@
  *   1. "claude" in louise.config.json (a path; it wins, so a person can point her at the one they want).
  *   2. On the PATH: claude.exe, then claude.cmd (npm's shim) on Windows; claude elsewhere. Then ~/.local/bin, where
  *      the native installer puts it, for a dashboard started without the person's PATH.
+ *   3. On Windows, npm's own folder, for an office started without npm on its PATH: %APPDATA%\npm\claude.cmd, then the
+ *      claude.exe under %APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin.
+ *   4. The newest Claude Code extension for VS Code: ~/.vscode/extensions/anthropic.claude-code-<version>-<platform>/
+ *      resources/native-binary/claude (claude.exe on Windows). Versions are compared number by number, so 2.1.295 is
+ *      newer than 2.1.95; a folder without the program is passed over.
  *   A .cmd shim is read for the program it starts ("%dp0%\...\claude.exe" or a .js entry script) and that program is
  *   run directly. A shim that names no such program is not used: nothing is ever run through cmd.exe or a shell. Name
  *   the program in louise.config.json instead. A .js file runs with this Node; anything else runs as it is.
+ *   status() says where she found it, in plain words (claudeFrom), or where she looked.
  *
  * The headless flags (ARGS), the narrowest set that lets her runbook run unattended:
  *   --setting-sources project,local    the person's own ~/.claude/settings.json is not read, so their allow rules and
@@ -61,12 +67,26 @@
  * Stopping (stop): only the recorded pid, and its children: taskkill /PID <pid> /T /F on Windows, the process group
  * elsewhere. Her stage goes to idle with a plain note. Nothing in a request names a pid.
  *
- *   findClaude({ claude, env, platform, home })   { program, args, image, via } or null
+ * A run that stopped before it finished (notice, on every status and start): the run file says a run is going, its
+ * heartbeat is over a minute old, its runner is gone (that pid is not alive, is this server, or is now some other
+ * program than Node) and so is the program it started (not alive, or now another program). Such a run was
+ * interrupted (the office restarted, the computer shut down): the run file is marked ended at its last heartbeat, with
+ * "interrupted" set to when she noticed; her stage goes to idle; and state/research-left.json records the topics it
+ * did not finish (engine/resume.js has the rule: a finished topic has its meta.json). A run stopped with Stop records
+ * the same. While that record is the last run's and names a topic left, status says so (unfinished), and a plain
+ * start is refused after an interruption (409 interrupted): "Pick up where I left off" (resume) comes first.
+ * Picking up (resume): the left topics, word for word with their request times and in their order, are written to
+ * requests/resume.md, which the run's own `take` takes before her list (engine/requests.js); then a run starts as
+ * above, with the same fixed arguments. Requests added since stay on her list for the run after.
+ *
+ *   findClaude({ claude, env, platform, homeDir })  { program, args, image, via, from, version } or null
  *   ALLOWED_SCRIPTS, DENY_EDIT                     the scripts a run may execute, the paths it may never write
  *   ARGS(home, library)                            the fixed arguments
- *   status(home, opts)  start(opts)  stop(opts)    opts { home, roots, writeRoot, claude, launch, hub, homeDir, now }
+ *   status(opts)  start(opts)  stop(opts)  resume(opts)
+ *                                                  opts { home, roots, writeRoot, claude, launch, hub, homeDir, now }
  *                                                  (hub, homeDir: where skills.js looks, for tests)
- *   runFile(home), logFile(home)
+ *   notice(opts)                                   marks an interrupted run as above; returns its run file or null
+ *   runFile(home), logFile(home), leftFile(home)
  */
 
 const fs = require('fs');
@@ -76,6 +96,7 @@ const { spawn, execFileSync } = require('child_process');
 const requests = require('./requests');
 const stage = require('./stage');
 const skills = require('./skills');
+const pickup = require('./resume');
 const { findHub } = require('./config');
 
 const PROMPT = 'Louise, research my list.';
@@ -93,6 +114,7 @@ const SESSION_ENV = ['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSIO
 const runFile = (home) => path.join(home, 'state', 'research-run.json');
 const logFile = (home) => path.join(home, 'state', 'research.log');
 const jobFile = (home) => path.join(home, 'state', 'research-job.json');
+const leftFile = (home) => path.join(home, 'state', 'research-left.json');
 const refuse = (status, reason, message) => Object.assign(new Error(message), { status, reason });
 
 const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } };
@@ -142,22 +164,72 @@ function launcher(file, platform) {
   return { program: file, args: [], image: path.basename(file), via: file };
 }
 
-/** Claude Code on this computer: the configured path, else the PATH, else ~/.local/bin. Null when it is not found. */
+/** Number by number: 2.1.295 is newer than 2.1.95. Negative when a is older than b. */
+function compareVersions(a, b) {
+  const x = String(a).split('.').map(Number);
+  const y = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i += 1) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+/** The program in the newest anthropic.claude-code-<version>[-<platform>] folder under dir that has one, or null. */
+function newestExtension(dir, name) {
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch (_) { return null; }
+  const found = names.map((n) => { const m = /^anthropic\.claude-code-(\d+(?:\.\d+)*)(?:-.+)?$/i.exec(n); return m ? { n, version: m[1] } : null; })
+    .filter(Boolean)
+    .sort((a, b) => compareVersions(b.version, a.version) || a.n.localeCompare(b.n));
+  for (const e of found) {
+    const file = path.join(dir, e.n, 'resources', 'native-binary', name);
+    if (isFile(file)) return { file, version: e.version };
+  }
+  return null;
+}
+
+/**
+ * Claude Code on this computer: the configured path, else the PATH, else ~/.local/bin, else (Windows) npm's folder,
+ * else the newest VS Code extension. Null when it is not found. from says which: config, path, local-bin, npm, vscode.
+ */
 function findClaude(opts) {
   const o = opts || {};
   const platform = o.platform || process.platform;
-  if (o.claude) return isFile(o.claude) ? launcher(path.resolve(o.claude), platform) : null;
+  const homeDir = o.homeDir || os.homedir();
+  const from = (l, where, extra) => (l ? Object.assign(l, { from: where }, extra) : null);
+  if (o.claude) return isFile(o.claude) ? from(launcher(path.resolve(o.claude), platform), 'config') : null;
   const env = o.env || process.env;
-  const dirs = String(env.PATH || env.Path || '').split(path.delimiter).filter(Boolean);
-  dirs.push(path.join(os.homedir(), '.local', 'bin'));
+  const onPath = String(env.PATH || env.Path || '').split(path.delimiter).filter(Boolean);
+  const dirs = onPath.concat(path.join(homeDir, '.local', 'bin'));
   const names = platform === 'win32' ? ['claude.exe', 'claude.cmd'] : ['claude'];
   for (const name of names) {
-    for (const d of dirs) {
-      const f = path.join(d.replace(/^"|"$/g, ''), name);
-      if (isFile(f)) { const l = launcher(f, platform); if (l) return l; }
+    for (let i = 0; i < dirs.length; i += 1) {
+      const f = path.join(dirs[i].replace(/^"|"$/g, ''), name);
+      if (isFile(f)) { const l = launcher(f, platform); if (l) return from(l, i < onPath.length ? 'path' : 'local-bin'); }
     }
   }
-  return null;
+  if (platform === 'win32') {
+    const npm = path.join(env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'), 'npm');
+    for (const f of [path.join(npm, 'claude.cmd'), path.join(npm, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe')]) {
+      if (isFile(f)) { const l = launcher(f, platform); if (l) return from(l, 'npm'); }
+    }
+  }
+  const ext = newestExtension(path.join(homeDir, '.vscode', 'extensions'), platform === 'win32' ? 'claude.exe' : 'claude');
+  return ext ? from(launcher(ext.file, platform), 'vscode', { version: ext.version }) : null;
+}
+
+/** Where she found Claude Code, in plain words: for her status, so a person can see which program a run would use. */
+function claudeFrom(found, configured) {
+  if (found && typeof found === 'object') {
+    const where = {
+      config: 'Named in louise.config.json', path: 'Found on the PATH', 'local-bin': 'Found in ~/.local/bin',
+      npm: "Found in npm's folder", vscode: `Found in the Claude Code extension for VS Code${found.version ? `, version ${found.version}` : ''}`,
+    }[found.from] || 'Found';
+    return `${where}: ${found.via || found.program}`;
+  }
+  if (configured) return `louise.config.json names ${configured} as Claude Code, but there is no program there.`;
+  return "Not found. I looked in louise.config.json, on the PATH, in ~/.local/bin, in npm's folder and in the VS Code extension.";
 }
 
 /** The image name of a running pid ("claude.exe", "node"), or null when there is no such process. */
@@ -197,14 +269,70 @@ function current(home, strict, now) {
   return { pid: r.pid, image: r.image, started: r.started, starting: false };
 }
 
-/** What her dashboard needs: is a run going, how many questions wait, can one start. */
+/** The runner (engine/research-run.js, run by this Node) is gone: not alive, this server's own pid, or another program. */
+function runnerGone(r) {
+  if (!Number.isInteger(r.runner) || r.runner === process.pid || !alive(r.runner)) return true;
+  return !sameImage(imageOf(r.runner), path.basename(process.execPath));
+}
+
+/**
+ * The topics the run in this run file left unfinished (engine/resume.js), recorded in state/research-left.json as
+ * { token, why: interrupted|stopped, at, noticed, list, n, of, left }. Nothing is recorded when it took no list.
+ */
+function recordLeft(o, r, why, at) {
+  if (!o.writeRoot || !r || !r.token || !r.started) return null;
+  let pick = null;
+  try {
+    const list = pickup.takenList(o.home, r.started, at);
+    pick = list ? pickup.leftovers({ home: o.home, started: r.started, list, roots: o.roots, writeRoot: o.writeRoot }) : null;
+  } catch (_) { pick = null; }
+  if (!pick) return null;
+  const rec = { token: r.token, why, at, noticed: new Date(o.now || Date.now()).toISOString(), list: pick.list, n: pick.n, of: pick.of, left: pick.left };
+  writeJson(leftFile(o.home), rec);
+  return rec;
+}
+
+/** What the last run left to pick up, while it is the run in her run file and has ended: the record, or null. */
+function lastLeft(home) {
+  const r = readJson(runFile(home));
+  const l = readJson(leftFile(home));
+  if (!r || !l || typeof l !== 'object' || !r.ended || !l.token || l.token !== r.token) return null;
+  if (!['interrupted', 'stopped'].includes(l.why) || !pickup.LIST_RE.test(String(l.list))) return null;
+  if (!Number.isInteger(l.of) || !Number.isInteger(l.n) || !Array.isArray(l.left) || !l.left.length) return null;
+  return l.left.every((i) => Number.isInteger(i) && i >= 0 && i < l.of) ? l : null;
+}
+
+/** A run that stopped without saying so (its runner and its program are gone): marked ended, its leftovers recorded. */
+function notice(opts) {
+  const o = opts || {};
+  const r = readJson(runFile(o.home));
+  if (!r || typeof r !== 'object' || r.ended || r.starting || !Number.isInteger(r.pid)) return null;
+  const at = o.now || Date.now();
+  if (at - Date.parse(r.beat) < STALE_BEAT_MS) return null; // the runner wrote its heartbeat a moment ago
+  if (!runnerGone(r)) return null;
+  if (alive(r.pid) && sameImage(imageOf(r.pid), r.image)) return null; // the program is still working
+  const last = r.beat || r.started;
+  writeJson(runFile(o.home), Object.assign({}, r, { ended: last, interrupted: new Date(at).toISOString() }));
+  recordLeft(o, r, 'interrupted', last);
+  const file = stage.stageFile(o.home);
+  const own = stage.readOwn(file);
+  if (!own || own.stage !== 'idle') stage.set(file, 'idle', { note: 'My last research run stopped before I finished.' });
+  return r;
+}
+
+/** What her dashboard needs: is a run going, how many questions wait, can one start, did the last one stop early. */
 function status(opts) {
   const o = opts || {};
+  notice(o);
   const run = current(o.home, false, o.now);
+  const found = o.claudeFound != null ? o.claudeFound : findClaude({ claude: o.claude });
+  const left = run ? null : lastLeft(o.home);
   return {
     running: Boolean(run), since: run ? run.started : null,
     waiting: requests.list(requests.queueFile(o.home)).length,
-    claude: Boolean(o.claudeFound != null ? o.claudeFound : findClaude({ claude: o.claude })),
+    claude: Boolean(found),
+    claudeFrom: claudeFrom(found, o.claude),
+    unfinished: left ? { why: left.why, at: left.at, n: left.n, of: left.of, left: left.left.length } : null,
   };
 }
 
@@ -236,10 +364,13 @@ function launchDetached(job, home) {
 async function start(opts) {
   const o = opts || {};
   const home = o.home;
+  notice(o);
   const found = findClaude({ claude: o.claude });
   if (!found) throw refuse(409, 'no-claude', 'I need Claude Code on this computer to do research. Install it, or name its program in louise.config.json as "claude".');
   if (!o.writeRoot) throw refuse(409, 'no-library', 'I have no library folder yet. Name one in louise.config.json, then try again.');
-  if (!requests.list(requests.queueFile(home)).length) throw refuse(409, 'empty', 'Nothing on my list yet.');
+  const left = o.resume ? null : lastLeft(home);
+  if (left && left.why === 'interrupted') throw refuse(409, 'interrupted', 'My last run stopped partway. Press "Pick up where I left off" first.');
+  if (!requests.list(requests.queueFile(home)).length && !requests.list(requests.resumeFile(home)).length) throw refuse(409, 'empty', 'Nothing on my list yet.');
   if (current(home, true)) throw refuse(409, 'running', "I'm already working on my list.");
   const have = skills.ensure({ home, hub: o.hub !== undefined ? o.hub : findHub(home), homeDir: o.homeDir });
   if (have.missing.length) {
@@ -284,7 +415,41 @@ function stop(opts) {
   const r = readJson(runFile(home)) || {};
   if (!r.ended) writeJson(runFile(home), Object.assign(r, { ended: new Date().toISOString(), stopped: true }));
   stage.set(stage.stageFile(home), 'idle', { note: 'Stopped from her dashboard. What she finished is on the shelves.' });
+  recordLeft(o, r, 'stopped', new Date().toISOString());
   return { running: alive(run.pid) && sameImage(imageOf(run.pid), run.image) };
 }
 
-module.exports = { PROMPT, ARGS, ALLOWED_SCRIPTS, DENY_EDIT, findClaude, launcher, current, status, start, stop, runFile, logFile, jobFile, imageOf, SESSION_ENV, BEAT_MS };
+/**
+ * Pick up where she left off: one run over exactly the topics her last run did not finish (it was interrupted, or
+ * stopped with Stop). Resolves as start does, with resumed: <how many topics>; throws 409 nothing-left when there are
+ * none, and start's refusals otherwise.
+ */
+async function resume(opts) {
+  const o = opts || {};
+  const home = o.home;
+  notice(o);
+  if (current(home, true)) throw refuse(409, 'running', "I'm already working on my list.");
+  const nothing = () => refuse(409, 'nothing-left', "There's nothing left from my last run to pick up.");
+  const left = lastLeft(home);
+  if (!left) throw nothing();
+  const run = readJson(runFile(home));
+  const pick = pickup.leftovers({ home, started: run.started, list: left.list, roots: o.roots, writeRoot: o.writeRoot });
+  if (!pick || !pick.left.length) {
+    writeJson(leftFile(home), Object.assign({}, left, { left: [] }));
+    throw nothing();
+  }
+  const file = pickup.write(home, pick);
+  try {
+    return Object.assign(await start(Object.assign({}, o, { resume: true })), { resumed: pick.left.length });
+  } catch (e) {
+    // Not started: her last run is still the one to pick up. A runner that comes up late still takes the pick-up list.
+    if (e && e.reason === 'not-started') writeJson(runFile(home), run);
+    else fs.writeFileSync(file, requests.HEADER, 'utf8');
+    throw e;
+  }
+}
+
+module.exports = {
+  PROMPT, ARGS, ALLOWED_SCRIPTS, DENY_EDIT, findClaude, claudeFrom, compareVersions, launcher, current, notice, status,
+  start, stop, resume, runFile, logFile, jobFile, leftFile, imageOf, SESSION_ENV, BEAT_MS,
+};

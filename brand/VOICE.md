@@ -141,7 +141,8 @@ error or a warning. One light line per screen at most. At her office door she ca
 
 The page fills these. `{topic}` is the topic she is working on, or the words someone searched for. `{n}` is a
 request's place on her list. A line with a placeholder is used only when the page has that value. Every list
-also has lines with no placeholder, for when it doesn't. `{of}` and `{count}` are allowed but not used yet:
+also has lines with no placeholder, for when it doesn't. `{of}` is used once, in `research.interrupted`, where
+`{n}` of `{of}` is the topic her last run stopped at and how many it had. `{count}` is allowed but not used yet:
 "{count} books" reads wrong when the count is 1.
 
 ## Ten before and after

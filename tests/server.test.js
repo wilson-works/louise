@@ -169,6 +169,27 @@ test('a POST must be JSON from her own page; fetch sends her fetching; a request
   assert.equal((await req('GET', '/api/fetch')).status, 405);
 });
 
+test('Remove takes one request off her list, only from her own page; one that is gone is a 404', async () => {
+  const before = (await req('GET', '/api/requests')).body.requests;
+  const fig = before.find((r) => r.topic === 'Repotting a fig');
+  assert.ok(fig && fig.at, 'the request above, with its time');
+  const body = { topic: fig.topic, at: fig.at };
+  assert.equal((await req('POST', '/api/request/remove', { body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' } })).status, 403);
+  assert.equal((await post('/api/request/remove', body, { Origin: 'http://evil.example.org' })).status, 403);
+  assert.equal((await post('/api/request/remove', body, { 'Sec-Fetch-Site': 'cross-site' })).status, 403);
+  assert.equal((await post('/api/request/remove', { topic: 42 })).status, 400);
+  assert.equal((await req('GET', '/api/request/remove')).status, 405);
+  assert.deepEqual((await req('GET', '/api/requests')).body.requests, before, 'a refused POST changes nothing');
+
+  const ok = await post('/api/request/remove', body, { Origin: `http://127.0.0.1:${port}`, 'Sec-Fetch-Site': 'same-origin' });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.body, { removed: true, queued: before.length - 1 });
+  assert.deepEqual((await req('GET', '/api/requests')).body.requests, before.filter((r) => r !== fig));
+  const again = await post('/api/request/remove', body);
+  assert.equal(again.status, 404);
+  assert.equal(again.body.error, "That one isn't on my list any more.");
+});
+
 test('a book that arrives after the first visit waits in unseen until POST /api/seen; the shelves she had never wait', async () => {
   const first = await req('GET', '/api/library');
   assert.equal(first.status, 200);
