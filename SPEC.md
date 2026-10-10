@@ -127,7 +127,9 @@ is finished when its `meta.json` says `complete` (the rule her shelves use; mara
 citation check). One set aside under `flagged/` or `failed/` is on her shelves already and is not researched again. A
 draft without `meta.json` starts again from scratch. While a run waits to be picked up, the request slip points to the
 button instead of asking for a question, and "Research my list" waits (requests added meanwhile stay on her list for
-the run after). After Stop the same offer is made, and "Research my list" stays beside it. Each request on her list has
+the run after). When Claude Code itself ends the run with an error while her runner is still there (the account's
+usage limit, reached mid-run), the bar says "My last research run ended early at topic n of m." with the same one
+button. After Stop the same offer is made, and "Research my list" stays beside it. Each request on her list has
 a small "Remove" that asks once before it takes the request off.
 
 ## The API (lane E serves it, lane D uses it)
@@ -143,7 +145,7 @@ a small "Remove" that asks once before it takes the request off.
 | `POST /api/request` `{ "topic", "framing" }` | appended to `requests/queue.md` in marathon-research's queue format; `{ "queued": n }` |
 | `POST /api/request/remove` `{ "topic", "at" }` | takes that request off her list (the "Remove" by each one), leaving every other line as written; `{ "removed": true, "queued": n }`; `404` when it is not on the list any more |
 | `GET /api/requests` | `{ "requests": [{ "topic", "framing", "at" }] }` |
-| `GET /api/research` | `{ "running", "since", "waiting", "claude", "claudeFrom", "unfinished" }`: is a run of her list going, how many questions wait, is Claude Code here and where she found it (plain words), and `unfinished` `{ "why": "interrupted\|stopped", "at", "n", "of", "left" }` when her last run stopped at topic `n` of `of` with `left` topics not finished (else `null`). A run whose runner and program have gone is found here and marked interrupted |
+| `GET /api/research` | `{ "running", "since", "waiting", "claude", "claudeFrom", "unfinished" }`: is a run of her list going, how many questions wait, is Claude Code here and where she found it (plain words), and `unfinished` `{ "why": "interrupted\|stopped\|ended-early", "at", "n", "of", "left" }` when her last run stopped at topic `n` of `of` with `left` topics not finished (else `null`). A run whose runner and program have gone is found here and marked interrupted |
 | `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library\|no-skill\|interrupted" }` (`interrupted`: her last run stopped without finishing, so it is picked up first); before it starts, the skills her `agent.json` requires are copied into her `.claude/skills/` (`engine/skills.js`), and the run leaves the user's own settings out (`--setting-sources project,local`) |
 | `POST /api/research/resume` `{}` | "Pick up where I left off": one run, with the same fixed arguments, over exactly the topics her last run did not finish (`engine/resume.js`), word for word with their request times, in order; `202 { "running": true, "resumed": n }`, or `409` as above, or `nothing-left` |
 | `POST /api/research/stop` `{}` | stops the run she recorded, and only it; her stage goes to `idle`; `409` (`not-running`) when there is none |

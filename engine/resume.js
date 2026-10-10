@@ -19,7 +19,9 @@
  *   - a folder the run's marathon-research state names for it: the wave with its title, or the wave for its queue
  *     entry's slug (the queue entry with its title, or the one in its place when the titles were changed);
  *   - or, dated no earlier than the day the run started: a folder whose name, without its date, is that slug or the
- *     slug marathon-research makes from the title, or a book whose title is the topic.
+ *     slug marathon-research makes from the title, or a book whose title is the topic. A finished book counts this way
+ *     only when its meta.json was written at or after the run started, so a book finished earlier the same day (the
+ *     same topic, asked again) is not taken for this run's.
  * The state file counts as this run's only when it was written after the run started.
  *
  *   takenList(home, started, until)   the run's list file, or null when it took none
@@ -102,8 +104,15 @@ function topicBooks(o) {
   return library.buildIndex([root]).books.filter((b) => b.kind === 'topic');
 }
 
+/** A finished topic folder's meta.json (in the root, or under marathons/) was written at or after startedMs. */
+function finishedSince(b, startedMs) {
+  return [b.slug, path.join('marathons', b.slug)].some((rel) => {
+    try { return fs.statSync(path.join(b.rootPath, rel, 'meta.json')).mtimeMs >= startedMs; } catch (_) { return false; }
+  });
+}
+
 /** Is request i (of total) done in this run: a finished, flagged or failed book of its own? */
-function isDone(req, i, total, state, books, since) {
+function isDone(req, i, total, state, books, since, startedMs) {
   const want = norm(req.topic);
   const queue = state && Array.isArray(state.queue) ? state.queue.filter((e) => e && typeof e === 'object') : [];
   const waves = state && Array.isArray(state.waves) ? state.waves.filter((w) => w && typeof w.slug === 'string') : [];
@@ -112,7 +121,8 @@ function isDone(req, i, total, state, books, since) {
   const named = new Set(waves.filter((w) => (want && norm(w.title) === want) || (qSlug && undated(w.slug) === qSlug)).map((w) => w.slug));
   const slugs = new Set([qSlug, slugify(req.topic)].filter(Boolean));
   return books.some((b) => DONE.has(b.status) && (named.has(b.slug)
-    || (dayOf(b.slug) >= since && (slugs.has(undated(b.slug)) || (Boolean(want) && norm(b.title) === want)))));
+    || (dayOf(b.slug) >= since && (slugs.has(undated(b.slug)) || (Boolean(want) && norm(b.title) === want))
+      && (b.status !== 'finished' || finishedSince(b, startedMs)))));
 }
 
 function leftovers(opts) {
@@ -126,7 +136,7 @@ function leftovers(opts) {
   const state = runStateOf(o, startedMs);
   const books = topicBooks(o);
   const since = firstDay(startedMs);
-  const done = reqs.map((r, i) => isDone(r, i, reqs.length, state, books, since));
+  const done = reqs.map((r, i) => isDone(r, i, reqs.length, state, books, since, startedMs));
   const left = done.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
   return { list: path.basename(file), n: Math.min(done.lastIndexOf(true) + 2, reqs.length), of: reqs.length, left };
 }

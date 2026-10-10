@@ -246,8 +246,8 @@ runbook in Louise's CLAUDE.md on this list: `<the list file>`", with the library
 `node dashboard/server.js` serves it on this computer only, on her port (`node engine/config.js` shows it). The
 office starts it for her. Her desk shows her stage, her list, the "Research my list" button (it starts the runbook
 above, see "A run started from her dashboard"), "Ask me what we already have" and the "Request research" form. Each
-request on her list has a small "Remove". When her last run stopped before it finished (the office restarted, or the
-person pressed Stop), her desk says at which topic and offers "Pick up where I left off": a run over just the topics it
+request on her list has a small "Remove". When her last run stopped before it finished (the office restarted, Claude
+Code ended it early, or the person pressed Stop), her desk says at which topic and offers "Pick up where I left off": a run over just the topics it
 did not finish, word for word, in order (`engine/resume.js` has the rule: a finished topic has its meta.json). When she has
 finished a book you have not opened yet, her desk shows her holding it out, and "Show me the book" opens it; after you
 close it the first time she shelves it (`state/seen.json`, on this computer only). A book

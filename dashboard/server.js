@@ -44,7 +44,7 @@
  *   GET  /api/research                   { running, since, waiting, claude, claudeFrom, unfinished }: is a run of her
  *                                        list going, how many questions wait, is Claude Code here and where she found
  *                                        it (plain words), and, when her last run stopped before it finished,
- *                                        unfinished { why: interrupted | stopped, at, n, of, left } (it stopped at topic
+ *                                        unfinished { why: interrupted | stopped | ended-early, at, n, of, left } (it stopped at topic
  *                                        n of of, with left topics not finished). A run whose runner has gone is found
  *                                        here and marked interrupted (engine/research.js).
  *   POST /api/research   {}              starts one run (engine/research.js): 202 { running: true }; 409 with

@@ -1,5 +1,5 @@
 {
-  "_contract": "Every line Louise says on her dashboard and at her office door. A list holds variants: the page picks one. The page fills {topic} (the topic she is on, or the words searched for) and {n} (a request's place on her list; in research.interrupted, the topic her last run stopped at, of {of}). A line with a placeholder is used only when the page has that value; every list also has lines without one. Keys that start with _ are notes, not copy. The rules these lines pass are in brand/VOICE.md.",
+  "_contract": "Every line Louise says on her dashboard and at her office door. A list holds variants: the page picks one. The page fills {topic} (the topic she is on, or the words searched for) and {n} (a request's place on her list; in research.interrupted and research.endedEarly, the topic her last run stopped at, of {of}). A line with a placeholder is used only when the page has that value; every list also has lines without one. Keys that start with _ are notes, not copy. The rules these lines pass are in brand/VOICE.md.",
   "name": "Louise",
   "title": "The Research Librarian",
   "line": "Researches your questions with a source for every fact, and keeps what she finds on shelves you can browse.",
@@ -136,11 +136,12 @@
     "removeGone": "That one isn't on my list any more."
   },
   "research": {
-    "_": "The buttons by her list that start and stop a research run from her dashboard. reasons are keyed by the server's reason codes. interrupted is said when her last run stopped before it finished, with resume, which researches just the topics it did not finish.",
+    "_": "The buttons by her list that start and stop a research run from her dashboard. reasons are keyed by the server's reason codes. interrupted is said when her last run stopped before it finished (endedEarly when Claude Code ended it with an error, such as the usage limit), with resume, which researches just the topics it did not finish.",
     "start": "Research my list",
     "stop": "Stop",
     "resume": "Pick up where I left off",
     "interrupted": "My last research run stopped at topic {n} of {of} before I finished.",
+    "endedEarly": "My last research run ended early at topic {n} of {of}.",
     "started": [
       "Off I go. Watch my desk to see where I've got to.",
       "Starting on my list now. My desk shows each step."

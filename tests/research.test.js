@@ -14,6 +14,9 @@
  * rest, the topics it left offered; a plain start is refused until "Pick up where I left off" starts a run over just
  * those topics, word for word, with her newer requests left on her list. A run that still beats, or whose program
  * still works, is never called interrupted. Stop records what the stopped run left, without blocking a plain start.
+ * A live pid whose program cannot be read (tasklist out of reach, as when it times out) is never taken for gone, and
+ * start does not start a second run beside it. A run Claude Code ended with an error code (the usage limit) is offered
+ * like an interrupted one, recorded once; Stop's own record and a clean end (code 0) are left as they are.
  * The permission flags are pinned to a literal list written out here (not ARGS itself), so a later widening fails. The real detached start (engine/research-run.js, through detach.vbs on Windows) runs the fake too.
  * Hermetic: temporary folders, ports from the system.
  */
@@ -357,6 +360,88 @@ test('a run is never called interrupted while its runner beats or its program st
   assert.ok(JSON.parse(fs.readFileSync(runFile, 'utf8')).interrupted);
   assert.equal(research.status(opts).unfinished, null);
   assert.equal((await research.resume(opts).catch((e) => e)).reason, 'nothing-left');
+});
+
+/** fn run with tasklist (ps elsewhere) out of reach, so no pid's program can be read: a tasklist that timed out. */
+function blind(fn) {
+  const was = process.env.PATH;
+  process.env.PATH = '';
+  try { return fn(); } finally { process.env.PATH = was; }
+}
+
+/** A pid that stays alive (a Node, waiting) until the tests end. */
+function livePid() {
+  const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' });
+  children.push(c);
+  return c.pid;
+}
+
+test('a live pid whose program cannot be read (a tasklist hiccup) is never taken for gone: no interruption, no second run', async () => {
+  const pid = livePid();
+  const lib = diedMidRun(await deadPid(), pid); // its runner (a Node, as runners are) is alive; its program is gone
+  const opts = { home: lib.home, roots: lib.roots, writeRoot: lib.root, claude: fake.file, launch: fakeLaunch };
+  const file = research.runFile(lib.home);
+  const base = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(blind(() => research.imageOf(pid)), null, 'nothing can be read');
+  assert.equal(blind(() => research.notice(opts)), null, 'its runner is alive');
+  // Its runner gone, the program it started alive under the same pid: unread, it is still her run.
+  fs.writeFileSync(file, JSON.stringify(Object.assign({}, base, { runner: await deadPid(), pid })));
+  assert.equal(blind(() => research.notice(opts)), null, 'its program is alive');
+  assert.equal(blind(() => research.status(opts)).unfinished, null);
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).ended, undefined, 'never marked');
+  // Read again, that pid is a Node, not the claude.exe she started: now the run did stop, and it is offered.
+  assert.ok(research.notice(opts));
+  assert.equal(research.status(opts).unfinished.why, 'interrupted');
+
+  // A run going (its heartbeat fresh): start cannot read its program either, and does not start a second run.
+  const busy = diedMidRun(await deadPid(), pid);
+  const bf = research.runFile(busy.home);
+  fs.writeFileSync(bf, JSON.stringify(Object.assign(JSON.parse(fs.readFileSync(bf, 'utf8')), { pid, beat: new Date().toISOString() })));
+  const b = { home: busy.home, roots: busy.roots, writeRoot: busy.root, claude: fake.file, launch: fakeLaunch };
+  assert.equal((await blind(() => research.start(b)).catch((e) => e)).reason, 'running');
+  assert.equal(JSON.parse(fs.readFileSync(bf, 'utf8')).token, 'dead', 'nothing was started');
+});
+
+test('a run Claude Code ended with an error (the usage limit, say) offers what it left, once; Stop\'s record and a clean end are kept', async () => {
+  const ENDED = '2026-10-09T01:31:00.000Z';
+  const lib = diedMidRun(await deadPid(), process.pid);
+  const file = research.runFile(lib.home);
+  const base = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const opts = { home: lib.home, roots: lib.roots, writeRoot: lib.root, claude: fake.file };
+  // Her runner saw the program exit with code 1 and wrote that it ended. Nobody pressed Stop; nothing was interrupted.
+  fs.writeFileSync(file, JSON.stringify(Object.assign({}, base, { beat: ENDED, ended: ENDED, code: 1, signal: null })));
+  const at = (iso) => Object.assign({}, opts, { now: Date.parse(iso) });
+  assert.deepEqual(research.status(at('2026-10-09T02:00:00Z')).unfinished, { why: 'ended-early', at: ENDED, n: 2, of: 3, left: 2 });
+  const once = fs.readFileSync(research.leftFile(lib.home), 'utf8');
+  assert.deepEqual(research.status(at('2026-10-09T03:00:00Z')).unfinished, { why: 'ended-early', at: ENDED, n: 2, of: 3, left: 2 });
+  assert.equal(fs.readFileSync(research.leftFile(lib.home), 'utf8'), once, 'recorded once, not on every look');
+
+  const fake6 = makeFake();
+  const sv = await serve({ home: lib.home, roots: lib.roots, writeRoot: lib.root, claude: fake6.file, launch: fakeLaunch });
+  try {
+    assert.equal((await sv.post('/api/research', {})).body.reason, 'interrupted', 'a plain start waits, as after an interruption');
+    const r = await sv.post('/api/research/resume', {});
+    assert.equal(r.status, 202, JSON.stringify(r.body));
+    assert.equal(r.body.resumed, 2);
+    assert.deepEqual(requests.list(requests.resumeFile(lib.home)).map((q) => q.topic), ['Rain barrels', 'Sourdough starter care']);
+  } finally {
+    try { await sv.post('/api/research/stop', {}); } catch (_) { /* stopped already */ }
+    await new Promise((res) => sv.server.close(res));
+  }
+
+  // The runner's last write (code 1 from the kill) can land after Stop's: Stop's own record stands.
+  const lib2 = diedMidRun(await deadPid(), process.pid);
+  const file2 = research.runFile(lib2.home);
+  const base2 = JSON.parse(fs.readFileSync(file2, 'utf8'));
+  const opts2 = { home: lib2.home, roots: lib2.roots, writeRoot: lib2.root, claude: fake.file };
+  fs.writeFileSync(file2, JSON.stringify(Object.assign({}, base2, { ended: ENDED, code: 1 })));
+  write(research.leftFile(lib2.home), JSON.stringify({ token: 'dead', why: 'stopped', at: ENDED, noticed: ENDED, list: 'queue-2026-10-08T23-00-05-000Z.md', n: 2, of: 3, left: [1, 2] }));
+  assert.deepEqual(research.status(opts2).unfinished, { why: 'stopped', at: ENDED, n: 2, of: 3, left: 2 });
+  // A clean end (code 0) is not an early one: nothing is recorded or offered.
+  fs.rmSync(research.leftFile(lib2.home));
+  fs.writeFileSync(file2, JSON.stringify(Object.assign({}, base2, { ended: ENDED, code: 0 })));
+  assert.equal(research.status(opts2).unfinished, null);
+  assert.equal(fs.existsSync(research.leftFile(lib2.home)), false);
 });
 
 test('the permission flags are exactly these (a literal list: widening any of them fails here)', () => {

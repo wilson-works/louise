@@ -49,7 +49,8 @@ stays on the shelves). Changed your mind about a question? **Remove**, beside it
 also arrange the shelves, search them, open a book, or ask her what you already have ("Ask me what we already have",
 on her desk and above the shelves): she fetches the book she thinks it's in.
 
-If a run stops before it finishes (you pressed Stop, or the computer or the office restarted under it), her desk says
+If a run stops before it finishes (you pressed Stop, the computer or the office restarted under it, or Claude Code
+ended it early, say at your usage limit), her desk says
 which topic it stopped at and offers **Pick up where I left off**. That runs just the topics it didn't finish, in the
 same order, with the same words and request times. A topic counts as finished when its `meta.json` says `complete`,
 so a finished topic is never researched twice. A half-written one is started again. One she set aside (missing
