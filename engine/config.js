@@ -21,7 +21,8 @@
  * taken), else 7540.
  *
  * Claude Code, for a research run started from her dashboard (engine/research.js): "claude" in louise.config.json, the
- * path to the program (~ and relative paths as for a root). Without it, research.js looks for claude on the PATH.
+ * path to the program (~ and relative paths as for a root). Without it, research.js looks on the PATH, in
+ * ~/.local/bin, in npm's folder (Windows) and in the VS Code extension (findClaude).
  *
  *   load(opts)  { home, port, roots: [{ label, path, council, state, example }], writeRoot, source, hub,
  *                 phoneHost, claude, file, notes }   opts { home } (default: her folder). Throws, in plain words, when

@@ -38,11 +38,20 @@
  *   GET  /api/book/<id>/page/<n>         { n, name, kind, markdown }
  *   POST /api/fetch    { q }             { book, matches }, and her stage goes to fetching
  *   POST /api/request  { topic, framing }  { queued: n }, appended to requests/queue.md
+ *   POST /api/request/remove  { topic, at }  takes that request off her list (the "Remove" by each one):
+ *                                        { removed: true, queued: n }; 404 when it is not on the list any more
  *   GET  /api/requests                   { requests: [{ topic, framing, at }] }
- *   GET  /api/research                   { running, since, waiting, claude }: is a run of her list going, how many
- *                                        questions wait, is Claude Code here
+ *   GET  /api/research                   { running, since, waiting, claude, claudeFrom, unfinished }: is a run of her
+ *                                        list going, how many questions wait, is Claude Code here and where she found
+ *                                        it (plain words), and, when her last run stopped before it finished,
+ *                                        unfinished { why: interrupted | stopped, at, n, of, left } (it stopped at topic
+ *                                        n of of, with left topics not finished). A run whose runner has gone is found
+ *                                        here and marked interrupted (engine/research.js).
  *   POST /api/research   {}              starts one run (engine/research.js): 202 { running: true }; 409 with
- *                                        { error, reason: empty | running | no-claude | no-library | no-skill } when it cannot
+ *                                        { error, reason: empty | running | no-claude | no-library | no-skill |
+ *                                        interrupted } when it cannot (interrupted: pick up the last run first)
+ *   POST /api/research/resume  {}        "Pick up where I left off": one run over exactly the topics the last run did
+ *                                        not finish: 202 { running: true, resumed: n }; 409 as above, or nothing-left
  *   POST /api/research/stop  {}          stops the run she recorded: { running: false }; 409 (reason not-running) when
  *                                        there is none. The body is never read for a pid.
  *   POST /api/feedback { q, book, helpful }  remembers whether the book she brought for q was the one you needed
@@ -142,7 +151,7 @@ function createServer(opts) {
   const queueFile = requests.queueFile(home);
   const feedbackFile = feedback.feedbackFile(home);
   const seenFile = seen.seenFile(home);
-  const runOpts = { home, writeRoot: o.writeRoot || null, claude: o.claude || null, launch: o.launch, hub: o.hub, homeDir: o.homeDir };
+  const runOpts = { home, roots, writeRoot: o.writeRoot || null, claude: o.claude || null, launch: o.launch, hub: o.hub, homeDir: o.homeDir };
   const hosts = new Set(['127.0.0.1', 'localhost']);
   if (o.phoneHost) hosts.add(String(o.phoneHost).toLowerCase());
   const dirs = { public: path.join(home, 'dashboard', 'public'), art: path.join(home, 'art'), brand: path.join(home, 'brand') };
@@ -182,7 +191,8 @@ function createServer(opts) {
     bm = /^\/api\/book\/([A-Za-z0-9._-]{1,200})\/page\/(\d{1,4})$/.exec(p);
     if (bm && m === 'GET') return json(res, 200, library.readPage(index(), bm[1], Number(bm[2])));
 
-    if (['/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback', '/api/seen'].includes(p) && m === 'POST') {
+    const POSTS = ['/api/fetch', '/api/request', '/api/request/remove', '/api/research', '/api/research/stop', '/api/research/resume', '/api/feedback', '/api/seen'];
+    if (POSTS.includes(p) && m === 'POST') {
       const refused = postRefused(req);
       if (refused) return fail(res, 403, refused);
       let body;
@@ -198,18 +208,20 @@ function createServer(opts) {
         return json(res, 200, feedback.record(feedbackFile, { q: body.q, book: body.book, helpful: body.helpful }, { known: (id) => ix.byId.has(id) }));
       }
       // The research routes take nothing from the body: the program, its arguments and the pid are all her own.
-      if (p === '/api/research' || p === '/api/research/stop') {
+      if (p === '/api/research' || p === '/api/research/stop' || p === '/api/research/resume') {
         try {
           if (p === '/api/research') return json(res, 202, await research.start(runOpts));
+          if (p === '/api/research/resume') return json(res, 202, await research.resume(runOpts));
           return json(res, 200, research.stop(runOpts));
         } catch (e) {
           if (e && e.reason) return json(res, e.status, { error: e.message, reason: e.reason });
           throw e;
         }
       }
+      if (p === '/api/request/remove') return json(res, 200, requests.remove(queueFile, { topic: body.topic, at: body.at }));
       return json(res, 200, requests.add(queueFile, { topic: body.topic, framing: body.framing }));
     }
-    if (['/api/stage', '/api/library', '/api/requests', '/api/fetch', '/api/request', '/api/research', '/api/research/stop', '/api/feedback', '/api/seen'].includes(p)) return fail(res, 405, 'That address does not take that kind of request.');
+    if (['/api/stage', '/api/library', '/api/requests'].concat(POSTS).includes(p)) return fail(res, 405, 'That address does not take that kind of request.');
     return fail(res, 404, 'Not found.');
   }
 

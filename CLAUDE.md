@@ -100,7 +100,9 @@ strip has nothing new to show while she works.
 
 1. `node engine/config.js where`. That folder is **the library**.
 2. Take her list: `node engine/requests.js take`. It prints the list file for this run and leaves her list empty
-   for new requests. (Nothing on her list? Say so, and stop.)
+   for new requests. (Nothing on her list? Say so, and stop.) When the person pressed "Pick up where I left off" on
+   her dashboard, `take` gives the list of topics her last run did not finish instead, and leaves her list for the run
+   after. Work it the same way.
 3. `node engine/stage.js set researching --note "Getting ready"`
 
 ### 1. Looking it up (the `marathon-research` skill)
@@ -210,6 +212,10 @@ tells the session so at the start. Run the runbook above, with these changes. He
   anyway is skipped and named in the run summary book.
 - **One session, no loop.** Do not register the skill's loop (its Phase 1, Step 7). Work every wave in this session,
   one after another (its Phase 2 for each topic), then its Phase 4, then the reading room, the red pen and shelving.
+- **Always a fresh start, on the list `take` printed.** If `<library>/marathon-research-state.json` says an earlier run
+  is still running or paused, that run has stopped. What it did not finish comes back as a list of its own, only when
+  the person presses "Pick up where I left off". Never carry on with its queue. Write a fresh state for this list (the
+  skill's Phase 1, Step 5) and research every topic on it, from the first.
 - **No memory check.** Skip the skill's memory check and its process clean-up (Phase 2, Step 1, and 3c). There is no
   command for them in this run, and a run never stops another program.
 - **Her scripts only, never a script of the run's own.** The run may execute only her shipped scripts, from her
@@ -239,7 +245,10 @@ runbook in Louise's CLAUDE.md on this list: `<the list file>`", with the library
 
 `node dashboard/server.js` serves it on this computer only, on her port (`node engine/config.js` shows it). The
 office starts it for her. Her desk shows her stage, her list, the "Research my list" button (it starts the runbook
-above, see "A run started from her dashboard"), "Ask me what we already have" and the "Request research" form. When she has
+above, see "A run started from her dashboard"), "Ask me what we already have" and the "Request research" form. Each
+request on her list has a small "Remove". When her last run stopped before it finished (the office restarted, or the
+person pressed Stop), her desk says at which topic and offers "Pick up where I left off": a run over just the topics it
+did not finish, word for word, in order (`engine/resume.js` has the rule: a finished topic has its meta.json). When she has
 finished a book you have not opened yet, her desk shows her holding it out, and "Show me the book" opens it; after you
 close it the first time she shelves it (`state/seen.json`, on this computer only). A book
 she brings for a question asks "Was this the book you needed?", and she remembers the answer for next time (in

@@ -9,7 +9,8 @@
 //   screen (crt.js makes its lines): READY at rest; in any other stage, what she is on (the topic, else her note), the
 //   step and how many minutes so far. While she is shelving, each time the new book she carries reaches its gap on the
 //   scene's bookcase, one book flies from there to the Library. The request form posts /api/request; her list comes
-//   from /api/requests.
+//   from /api/requests, every request with a small "Remove" that asks once ("Take this off my list?") and then posts
+//   /api/request/remove { topic, at }.
 // - A new book waits for you: /api/library's unseen lists finished books not opened yet. At rest (stage idle) while one
 //   waits, the presenting scene shows her holding it out, and "Show me the book" opens it. Closing a waiting book the
 //   first time posts /api/seen; when she was holding it out, the shelving scene plays once, then she goes back to
@@ -26,6 +27,10 @@
 //   Claude Code is here. "Research my list" posts /api/research; "Stop" (shown while a run is going) posts
 //   /api/research/stop. The start button stays focusable when it cannot be used (aria-disabled) and says why beside
 //   it; starting and stopping are announced politely.
+// - A run that stopped before it finished (/api/research's unfinished): the bar says "My last research run stopped at
+//   topic n of of before I finished." with "Pick up where I left off" (posts /api/research/resume: a run over just the
+//   topics it did not finish). After a crash that is the one button, and the request slip points to it instead of
+//   asking for a question; after Stop, "Research my list" stays beside it.
 // - The open book: a modal dialog. It opens on the Summary card page when the book has one (card first), flips with
 //   the buttons, the contents list or the arrow keys, and renders each page with md.js (escaped, then formatted).
 // - Reduced motion (or the pause button) stops the scene motion, the flights and the page turns.
@@ -83,7 +88,7 @@
     stage: null, stageKey: '', stageData: null, offline: 0, paused: false, holdUntil: 0, sceneToken: 0,
     arrange: 'topic', q: '', library: null, libToken: 0, highlight: new Set(), runTitles: new Map(),
     book: null, page: 0, pageToken: 0, opener: null, last: {}, asked: null, research: null,
-    unseen: [], seenNow: new Set(), presentId: null,
+    unseen: [], seenNow: new Set(), presentId: null, queue: [], asking: null,
   };
 
   // ---------------------------------------------------------------- copy
@@ -403,40 +408,145 @@
   async function loadQueue() {
     try {
       const { requests } = await getJSON('/api/requests');
-      const list = $('queue');
-      list.textContent = '';
-      (requests || []).slice(-5).forEach((r) => {
-        const li = document.createElement('li');
-        li.textContent = r.topic;
-        list.append(li);
-      });
-      $('queue-wrap').hidden = !list.children.length;
+      state.queue = Array.isArray(requests) ? requests : [];
+      renderQueue();
     } catch (e) { /* the list is a nicety; the form still works */ }
+    loadResearch();
+  }
+
+  // Her list, every request with a small "Remove". It asks once ("Take this off my list?") before the request comes off.
+  const keyOf = (r) => `${r.at || ''}|${r.topic}`;
+  const reqLine = (key, fallback) => (copy.requests && typeof copy.requests[key] === 'string' ? copy.requests[key] : fallback);
+
+  function smallButton(text, role, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `btn btn-line btn-small queue-${role}`;
+    b.dataset.role = role;
+    b.textContent = text;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  // focus: { key, role } to put focus on after drawing (a request and which of its buttons), else what had it before.
+  function renderQueue(focus) {
+    const list = $('queue');
+    const had = list.contains(document.activeElement) ? document.activeElement : null;
+    const want = focus || (had ? { key: had.closest('li').dataset.key, role: had.dataset.role } : null);
+    if (state.asking && !state.queue.some((r) => keyOf(r) === state.asking)) state.asking = null;
+    list.textContent = '';
+    state.queue.forEach((r, i) => list.append(queueItem(r, i)));
+    $('queue-wrap').hidden = !list.children.length;
+    if (!want) return;
+    const li = [...list.children].find((x) => x.dataset.key === want.key);
+    const target = li && (li.querySelector(`[data-role="${want.role}"]`) || li.querySelector('button'));
+    if (target) target.focus();
+    else if (had || focus) $('req-topic').focus();
+  }
+
+  function queueItem(r, i) {
+    const li = document.createElement('li');
+    li.dataset.key = keyOf(r);
+    const row = document.createElement('div');
+    row.className = 'queue-row';
+    const topic = document.createElement('span');
+    topic.className = 'queue-topic';
+    topic.textContent = r.topic;
+    row.append(topic);
+    if (state.asking === li.dataset.key) {
+      const ask = document.createElement('span');
+      ask.className = 'queue-ask';
+      ask.id = `queue-ask-${i}`;
+      ask.textContent = reqLine('removeAsk', 'Take this off my list?');
+      const yes = smallButton(reqLine('removeYes', 'Yes, remove it'), 'yes', () => removeRequest(r, i));
+      yes.setAttribute('aria-describedby', ask.id);
+      const no = smallButton(reqLine('removeNo', 'Keep it'), 'no', () => { state.asking = null; renderQueue({ key: li.dataset.key, role: 'remove' }); });
+      row.append(ask, yes, no);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); state.asking = null; renderQueue({ key: li.dataset.key, role: 'remove' }); }
+      });
+    } else {
+      const rm = smallButton(reqLine('remove', 'Remove'), 'remove', () => { state.asking = li.dataset.key; renderQueue({ key: li.dataset.key, role: 'yes' }); });
+      rm.setAttribute('aria-label', `${rm.textContent}: ${r.topic}`); // its visible word first (SC 2.5.3), then which request
+      row.append(rm);
+    }
+    li.append(row);
+    return li;
+  }
+
+  async function removeRequest(r, i) {
+    const status = $('req-status');
+    let gone = false;
+    try {
+      await postJSON('/api/request/remove', { topic: r.topic, at: r.at || null });
+    } catch (e) {
+      if (e.message !== '404') { status.textContent = ui('requestFailed'); return; }
+      gone = true;
+    }
+    state.asking = null;
+    status.textContent = gone ? reqLine('removeGone', '') : reqLine('removed', '');
+    try {
+      const { requests } = await getJSON('/api/requests');
+      state.queue = Array.isArray(requests) ? requests : [];
+    } catch (e) { state.queue = state.queue.filter((q) => keyOf(q) !== keyOf(r)); }
+    // Focus goes to the request that took its place (or the one before it), else back to the question box.
+    const next = state.queue[Math.min(i, state.queue.length - 1)];
+    renderQueue(next ? { key: keyOf(next), role: 'remove' } : { key: '', role: '' });
     loadResearch();
   }
 
   // ---------------------------------------------------------------- Research my list
   const reasonLine = (reason, fallback) => (copy.research && copy.research.reasons && copy.research.reasons[reason]) || fallback || '';
+  const researchLine = (key) => (copy.research && typeof copy.research[key] === 'string' ? copy.research[key] : '');
   let researchTimer = null;
+
+  // A button that leaves while it has focus hands focus to the first of the others still shown, never to the top of
+  // the page.
+  function showButton(btn, on, others) {
+    if (btn.hidden === !on) return;
+    if (!on && document.activeElement === btn) {
+      const stay = others.find((b) => !b.hidden);
+      if (stay) stay.focus();
+    }
+    btn.hidden = !on;
+  }
+
+  // While her last run waits to be picked up, the request slip points to the button, so nobody writes to her about it.
+  function pointToResume(on) {
+    const line = on ? get('requests.pickUp') : get('requests.howToStart');
+    const how = $('req-how');
+    if (typeof line === 'string' && how.textContent !== line) how.textContent = line;
+    $('req-topic').setAttribute('aria-describedby', on ? 'req-topic-error req-how' : 'req-topic-error');
+  }
 
   function renderResearch(st) {
     state.research = st;
     const startBtn = $('run-start');
     const stopBtn = $('run-stop');
+    const resumeBtn = $('run-resume');
+    // Her last run stopped before it finished: she says where, and "Pick up where I left off" researches just the
+    // topics it left. After a crash that is the one way on; after Stop, "Research my list" stays beside it.
+    const left = st && !st.running && st.unfinished && st.unfinished.left > 0 ? st.unfinished : null;
+    const said = left ? fmt(researchLine('interrupted'), { n: left.n, of: left.of }) : '';
+    const saidEl = $('run-said');
+    if (saidEl.textContent !== said) saidEl.textContent = said;
+    saidEl.hidden = !said;
+    const showStart = !left || (left.why === 'stopped' && st.waiting > 0);
+    const showStop = Boolean(st && st.running);
+    // Shown first, then hidden, so focus always has a button to go to: Stop while a run goes, else the start buttons.
+    const order = showStop ? [stopBtn, startBtn, resumeBtn] : [startBtn, resumeBtn, stopBtn];
+    [[resumeBtn, Boolean(left)], [startBtn, showStart], [stopBtn, showStop]].sort((a, b) => Number(b[1]) - Number(a[1]))
+      .forEach(([btn, on]) => showButton(btn, on, order.filter((x) => x !== btn)));
+    pointToResume(Boolean(left));
     let note = '';
     if (!st) note = ui('researchCheck');
     else if (st.running) note = reasonLine('running');
     else if (!st.claude) note = reasonLine('no-claude');
-    else if (!st.waiting) note = reasonLine('empty');
+    else if (showStart && !st.waiting) note = reasonLine('empty');
     if (note) startBtn.setAttribute('aria-disabled', 'true'); else startBtn.removeAttribute('aria-disabled');
+    if (st && !st.claude) resumeBtn.setAttribute('aria-disabled', 'true'); else resumeBtn.removeAttribute('aria-disabled');
     const n = $('run-note');
     if (n.textContent !== note) n.textContent = note;
-    const showStop = Boolean(st && st.running);
-    if (stopBtn.hidden === showStop) {
-      // The Stop button leaves while it has focus: focus goes back to the start button, never to the top of the page.
-      if (!showStop && document.activeElement === stopBtn) startBtn.focus();
-      stopBtn.hidden = !showStop;
-    }
   }
 
   async function loadResearch() {
@@ -461,6 +571,21 @@
     } catch (e) {
       announceRun(reasonLine('not-started', (copy.research && copy.research.failed) || ''));
     }
+    await loadResearch();
+    pollStageNow();
+  }
+
+  async function resumeResearch() {
+    const btn = $('run-resume');
+    if (btn.getAttribute('aria-disabled') === 'true') { announceRun($('run-note').textContent); return; }
+    btn.setAttribute('aria-disabled', 'true');
+    try {
+      const r = await postAnswer('/api/research/resume', {});
+      announceRun(r.ok ? researchLine('resumed') : reasonLine(r.reason, r.error));
+    } catch (e) {
+      announceRun(reasonLine('not-started', researchLine('failed')));
+    }
+    btn.removeAttribute('aria-disabled');
     await loadResearch();
     pollStageNow();
   }
@@ -935,6 +1060,7 @@
     $('desk-ask-form').addEventListener('submit', (e) => askLouise(e, { input: $('desk-q'), status: $('desk-ask-status'), button: $('desk-ask') }));
     $('desk-q').addEventListener('input', () => $('desk-q').removeAttribute('aria-invalid'));
     $('run-start').addEventListener('click', startResearch);
+    $('run-resume').addEventListener('click', resumeResearch);
     $('run-stop').addEventListener('click', stopResearch);
     $('verdict-yes').addEventListener('click', () => answer(true));
     $('verdict-no').addEventListener('click', () => answer(false));
@@ -963,6 +1089,7 @@
     await loadCopy();
     renderResearch(null);
     await loadLibrary(); // first, so a waiting book is known before her first caption is read out
+    await loadResearch(); // and a run that stopped early is found (her stage goes to rest) before her stage is read
     pollStage();
     loadQueue();
   }

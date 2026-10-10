@@ -45,8 +45,16 @@ In a chat opened on your Hub:
 
 On her dashboard you can add a question to her list ("Ask me to look something up") and press **Research my
 list** to start her on it, right there. Her desk shows each step, and **Stop** ends the run (anything she finished
-stays on the shelves). You can also arrange the shelves, search them, open a book, or ask her what you already have
-("Ask me what we already have", on her desk and above the shelves): she fetches the book she thinks it's in.
+stays on the shelves). Changed your mind about a question? **Remove**, beside it on her list, takes it off. You can
+also arrange the shelves, search them, open a book, or ask her what you already have ("Ask me what we already have",
+on her desk and above the shelves): she fetches the book she thinks it's in.
+
+If a run stops before it finishes (you pressed Stop, or the computer or the office restarted under it), her desk says
+which topic it stopped at and offers **Pick up where I left off**. That runs just the topics it didn't finish, in the
+same order, with the same words and request times. A topic counts as finished when its `meta.json` says `complete`,
+so a finished topic is never researched twice. A half-written one is started again. One she set aside (missing
+sources, or a question that needs sharpening) stays on its shelf. You don't need to write to her about it: after a
+crash the request box points to that button, and new questions wait on her list for the run after.
 
 A book she fetches for a question asks **"Was this the book you needed?"** Say no, and she tries the next shelf; when
 she runs out, she offers to put the question on her list. She remembers each answer, so a book that was right for a
@@ -75,10 +83,13 @@ node engine/stage.js get                         what she is doing now
 ## Starting her from her dashboard
 
 "Research my list" runs Claude Code on this computer, with no one at the keyboard, in her folder, told
-"Louise, research my list." It needs Claude Code installed: she finds `claude` on your PATH (on Windows, the
-`claude.cmd` that npm installs is read for the program it starts; nothing is run through `cmd.exe` or a shell), or you
-can name the program in `louise.config.json` as `"claude": "<path>"`. Nothing you type on the page reaches that
-command. She runs one research run at a time, and Stop ends only the run she started.
+"Louise, research my list." It needs Claude Code installed. She looks for it in this order: `"claude": "<path>"` in
+`louise.config.json` (it always wins); your PATH; `~/.local/bin`; on Windows, npm's own folder (`%APPDATA%\npm`), for
+an office started without npm on its PATH; and last the newest Claude Code extension for VS Code
+(`~/.vscode/extensions/anthropic.claude-code-<version>-<platform>/resources/native-binary`). On Windows the `claude.cmd`
+that npm installs is read for the program it starts; nothing is run through `cmd.exe` or a shell. Her status
+(`/api/research`, `claudeFrom`) says where she found it. Nothing you type on the page reaches that command. She runs
+one research run at a time, and Stop ends only the run she started.
 
 A run started this way can do only what her runbook needs, and asks nobody:
 
@@ -109,7 +120,9 @@ installed nowhere, she says so and doesn't start. Settings you keep in that file
 don't reach the run either: sign in to Claude Code the usual way and the run uses that sign-in.
 
 The library folder is made when the run starts, if it isn't there yet. The run's output goes to
-`state/research.log`; its pid, with a heartbeat, to `state/research-run.json`.
+`state/research.log`; its pid, with a heartbeat, to `state/research-run.json`. When a run stops before it finishes,
+`state/research-left.json` keeps which topics it left, and "Pick up where I left off" writes them to
+`requests/resume.md`, which the next run takes before her list.
 
 ## What stays on your computer
 

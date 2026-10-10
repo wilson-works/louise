@@ -118,6 +118,18 @@ code scroll inside their own box, and Previous and Next stay below the page.
 "Ask Louise to fetch it": the search box's "Ask Louise" button posts to `/api/fetch`; the stage goes to `fetching`, she
 brings the book, and it opens.
 
+A run that stops before it finishes (the owner, 2026-10-09: "Louise stalled out on her research and now I cant restart
+her on the office"). When her runner and the program it started are both gone but the run never said it ended, the run
+was interrupted: her stage goes to `idle` (so her desk never shows a dead run), and the bar by her list says "My last
+research run stopped at topic n of m before I finished." with one button, "Pick up where I left off". That starts one
+run over exactly the topics the run did not finish, word for word with their request times, in their order. A topic
+is finished when its `meta.json` says `complete` (the rule her shelves use; marathon-research writes it after the
+citation check). One set aside under `flagged/` or `failed/` is on her shelves already and is not researched again. A
+draft without `meta.json` starts again from scratch. While a run waits to be picked up, the request slip points to the
+button instead of asking for a question, and "Research my list" waits (requests added meanwhile stay on her list for
+the run after). After Stop the same offer is made, and "Research my list" stays beside it. Each request on her list has
+a small "Remove" that asks once before it takes the request off.
+
 ## The API (lane E serves it, lane D uses it)
 
 | Request | Answer |
@@ -129,9 +141,11 @@ brings the book, and it opens.
 | `GET /api/book/<id>/page/<n>` | `{ "n", "name", "kind", "markdown" }`: only a file inside a configured library root, at most 512 KB |
 | `POST /api/fetch` `{ "q" }` | `{ "book": "<id>" or null, "matches": [ids] }`, and the stage goes to `fetching` |
 | `POST /api/request` `{ "topic", "framing" }` | appended to `requests/queue.md` in marathon-research's queue format; `{ "queued": n }` |
+| `POST /api/request/remove` `{ "topic", "at" }` | takes that request off her list (the "Remove" by each one), leaving every other line as written; `{ "removed": true, "queued": n }`; `404` when it is not on the list any more |
 | `GET /api/requests` | `{ "requests": [{ "topic", "framing", "at" }] }` |
-| `GET /api/research` | `{ "running", "since", "waiting", "claude" }`: is a run of her list going, how many questions wait, is Claude Code here |
-| `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library\|no-skill" }; before it starts, the skills her `agent.json` requires are copied into her `.claude/skills/` (`engine/skills.js`), and the run leaves the user's own settings out (`--setting-sources project,local`)` |
+| `GET /api/research` | `{ "running", "since", "waiting", "claude", "claudeFrom", "unfinished" }`: is a run of her list going, how many questions wait, is Claude Code here and where she found it (plain words), and `unfinished` `{ "why": "interrupted\|stopped", "at", "n", "of", "left" }` when her last run stopped at topic `n` of `of` with `left` topics not finished (else `null`). A run whose runner and program have gone is found here and marked interrupted |
+| `POST /api/research` `{}` | starts one run of her list (`engine/research.js`: Claude Code headless in her folder, fixed arguments); `202 { "running": true }`, or `409 { "error", "reason": "empty\|running\|no-claude\|no-library\|no-skill\|interrupted" }` (`interrupted`: her last run stopped without finishing, so it is picked up first); before it starts, the skills her `agent.json` requires are copied into her `.claude/skills/` (`engine/skills.js`), and the run leaves the user's own settings out (`--setting-sources project,local`) |
+| `POST /api/research/resume` `{}` | "Pick up where I left off": one run, with the same fixed arguments, over exactly the topics her last run did not finish (`engine/resume.js`), word for word with their request times, in order; `202 { "running": true, "resumed": n }`, or `409` as above, or `nothing-left` |
 | `POST /api/research/stop` `{}` | stops the run she recorded, and only it; her stage goes to `idle`; `409` (`not-running`) when there is none |
 | `POST /api/feedback` `{ "q", "book", "helpful" }` | remembers whether the book she brought for `q` was the one you needed, in `state/feedback.jsonl`; `{ "remembered": n }` |
 | `POST /api/seen` `{ "book" }` | you have opened this book (sent when it is closed the first time), kept in `state/seen.json`; `{ "seen": n, "unseen": [{ "id", "title" }] }`; `404` when the book is not on the shelves |
