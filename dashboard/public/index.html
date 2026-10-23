@@ -5,7 +5,8 @@
   her to fetch from) and the open book (a dialog whose pages you flip). Her desk also has "Ask me what we already have"
   (the same fetch as the Library's search, above the fold), "Research my list" and "Stop" by her list, and a book opened
   by a question asks "Was this the book you needed?". When she has finished a book you have not opened yet, she holds it
-  out and "Show me the book" opens it. When her last run stopped before it finished, the bar by her list says so, with
+  out and "Show me the book" opens it; "Skip" beside it shelves every waiting book at once, and the box under it makes that the
+  rule (kept in this browser). "Order on each shelf" sorts the books on every shelf. When her last run stopped before it finished, the bar by her list says so, with
   "Pick up where I left off"; each request on her list has a small "Remove". Every line she says comes from /brand/copy.json;
   elements marked data-copy are filled from it by app.js. No build step, no framework, nothing loaded from elsewhere.
 -->
@@ -60,7 +61,11 @@
           <p class="caption-stage" id="stage-name"></p>
           <p class="caption-line" id="caption"></p>
         </div>
-        <button type="button" class="btn btn-gilt present" id="present" data-copy="presenting.open" hidden>Show me the book</button>
+        <div class="present-row" id="present-row" hidden>
+          <button type="button" class="btn btn-gilt present" id="present" data-copy="presenting.open">Show me the book</button>
+          <button type="button" class="btn btn-quiet" id="present-skip">Skip: shelve them all</button>
+        </div>
+        <label class="present-always" hidden><input type="checkbox" id="present-always"> <span data-copy="presenting.always">Skip showing me new books: put them all on the shelves at once</span></label>
         <p class="desk-offline" id="desk-offline" role="status"></p>
 
         <form class="ask" id="desk-ask-form" role="search" novalidate>
@@ -124,6 +129,18 @@
             <label><input type="radio" name="arrange" value="status"><span data-copy="library.arrange.status">Status</span></label>
           </div>
         </fieldset>
+
+        <div class="order">
+          <label for="order" data-copy="library.orderBy">Order on each shelf</label>
+          <select id="order" name="order">
+            <option value="shelf" data-copy="library.order.shelf">As shelved</option>
+            <option value="newest" data-copy="library.order.newest">Newest first</option>
+            <option value="oldest" data-copy="library.order.oldest">Oldest first</option>
+            <option value="title" data-copy="library.order.title">Title A to Z</option>
+            <option value="sources" data-copy="library.order.sources">Most sources</option>
+            <option value="opened" data-copy="library.order.opened">Recently opened</option>
+          </select>
+        </div>
 
         <form class="search" id="search-form" role="search" novalidate>
           <label for="q" data-copy="library.searchPlaceholder">Search the shelves</label>

@@ -47,7 +47,11 @@ On her dashboard you can add a question to her list ("Ask me to look something u
 list** to start her on it, right there. Her desk shows each step, and **Stop** ends the run (anything she finished
 stays on the shelves). Changed your mind about a question? **Remove**, beside it on her list, takes it off. You can
 also arrange the shelves, search them, open a book, or ask her what you already have ("Ask me what we already have",
-on her desk and above the shelves): she fetches the book she thinks it's in.
+on her desk and above the shelves): she fetches the book she thinks it's in. **Order on each shelf** sorts the books
+newest or oldest first, by title, by most sources, or by the ones you opened last.
+
+When she has finished books you haven't opened, she holds each one out to show you. **Skip** beside "Show me the
+book" puts all of them on the shelves at once, and the box under it makes that the rule in this browser.
 
 If a run stops before it finishes (you pressed Stop, the computer or the office restarted under it, or Claude Code
 ended it early, say at your usage limit), her desk says

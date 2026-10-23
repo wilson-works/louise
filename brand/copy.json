@@ -69,14 +69,34 @@
     "presenting": "A new book for you"
   },
   "presenting": {
-    "_": "When she has finished a book the person has not opened yet, she holds it out at her desk. open is the button that opens it; after it is closed the first time she shelves it.",
-    "open": "Show me the book"
+    "_": "When she has finished a book the person has not opened yet, she holds it out at her desk. open is the button that opens it; after it is closed the first time she shelves it. skip shelves every waiting book at once without opening them ({n} when more than one waits); always is the box that makes that the rule in this browser; shelved is what she says when she has put them up.",
+    "open": "Show me the book",
+    "skip": "Skip: shelve them all",
+    "skipOne": "Skip: just shelve it",
+    "skipMany": "Skip: shelve all {n}",
+    "always": "Skip showing me new books: put them all on the shelves at once",
+    "shelved": [
+      "All {n} are on the shelves now. They will keep.",
+      "There, all {n} put up at once. The shelves know where they are."
+    ],
+    "shelvedOne": [
+      "It is on the shelf now, whenever you want it."
+    ]
   },
   "library": {
     "title": "The Library",
     "empty": "The shelves are empty for now. Ask me a question and the first book goes here.",
     "arrangeBy": "Arrange the shelves by",
     "arrange": { "topic": "Topic", "run": "Run", "month": "Month", "status": "Status" },
+    "orderBy": "Order on each shelf",
+    "order": {
+      "shelf": "As shelved",
+      "newest": "Newest first",
+      "oldest": "Oldest first",
+      "title": "Title A to Z",
+      "sources": "Most sources",
+      "opened": "Recently opened"
+    },
     "searchPlaceholder": "Search the shelves",
     "ask": "Ask Louise",
     "found": [
