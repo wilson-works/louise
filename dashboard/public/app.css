@@ -148,8 +148,15 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
   font-size: var(--lz-text-sm);
 }
 
-/* She holds out a book you have not opened yet: this opens it. */
+/* She holds out a book you have not opened yet: this opens it, and Skip beside it shelves every waiting book at once. The
+ * box under it makes skipping the rule (kept in this browser). */
 .present { justify-self: start; }
+.present-row { display: flex; flex-wrap: wrap; gap: var(--lz-space-2); }
+.present-always {
+  display: flex; align-items: center; gap: var(--lz-space-2); min-height: 44px; cursor: pointer;
+  font-size: var(--lz-text-sm); color: var(--lz-on-surface-muted);
+}
+.present-always input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--lz-accent); cursor: pointer; }
 
 /* Ask me what we already have: the Library's "Ask Louise", at her desk. */
 .ask { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lz-space-2); }
@@ -250,12 +257,19 @@ main { max-width: 1320px; margin: 0 auto; padding: 0 var(--lz-space-5) var(--lz-
 
 .library-tools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--lz-space-4) var(--lz-space-5); }
 .arrange { border: 0; margin: 0; padding: 0; min-width: 0; }
-.arrange legend, .search label {
+.arrange legend, .search label, .order label {
   padding: 0; margin-bottom: var(--lz-space-2);
   font-family: var(--lz-font-title); font-variant: small-caps; letter-spacing: 0.06em; font-size: var(--lz-text-md);
   color: var(--lz-on-surface-muted);
 }
-.search label { display: block; }
+.search label, .order label { display: block; }
+/* Order on each shelf: newest, oldest, title, most sources, recently opened. */
+.order { min-width: 0; }
+.order select {
+  min-height: 44px; max-width: 100%; padding: 0 var(--lz-space-4); border-radius: 10px;
+  background: var(--lz-paper-50); color: var(--lz-on-paper); border: 1px solid var(--lz-paper-line);
+  font: inherit; font-size: var(--lz-text-md); font-weight: 600; cursor: pointer;
+}
 .arrange-options {
   display: inline-flex; flex-wrap: wrap; padding: 4px; gap: 4px; border-radius: 12px;
   background: var(--lz-bg); border: 1px solid var(--lz-line);

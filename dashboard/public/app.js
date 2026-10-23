@@ -14,10 +14,16 @@
 // - A new book waits for you: /api/library's unseen lists finished books not opened yet. At rest (stage idle) while one
 //   waits, the presenting scene shows her holding it out, and "Show me the book" opens it. Closing a waiting book the
 //   first time posts /api/seen; when she was holding it out, the shelving scene plays once, then she goes back to
-//   reading. The run's stages always come first.
+//   reading. The run's stages always come first. "Skip" beside it shelves every waiting book at once (each one posts
+//   /api/seen; the shelving scene plays once and that many books fly to the Library), and "Skip showing me new books"
+//   makes that the rule, kept in this browser (localStorage louise.autoShelve).
 // - On a phone the shelves lay each book flat in a row (app.css), and in the open book wide tables and code get their
 //   own sideways-scrolling box, the page names one sideways row, and a turned page starts at its own top.
-// - The Library: GET /api/library?arrange=&q= draws one shelf per section with an indicator and its count. Typing in
+// - The Library: GET /api/library?arrange=&q= draws one shelf per section with an indicator and its count. "Order on each
+//   shelf" sorts the books on every shelf, in the page: as shelved (the server's order), newest or oldest first (oldest
+//   also turns the month and run shelves oldest first), title A to Z, most sources, or recently opened (the books opened
+//   in this browser, latest first, then the rest newest first; localStorage louise.opened). The choice is kept
+//   (localStorage louise.order). Typing in
 //   the search box narrows the shelves; "Ask Louise" posts /api/fetch, plays the fetching scene, then opens the book.
 //   Her desk has the same "Ask Louise" box ("Ask me what we already have"), above the fold.
 // - A book opened by a question asks "Was this the book you needed?". Yes or No posts /api/feedback { q, book,
@@ -90,6 +96,12 @@
     arrange: 'topic', q: '', library: null, libToken: 0, highlight: new Set(), runTitles: new Map(),
     book: null, page: 0, pageToken: 0, opener: null, last: {}, asked: null, research: null,
     unseen: [], seenNow: new Set(), presentId: null, queue: [], asking: null,
+    autoShelve: false, order: 'shelf', opened: {}, burst: 0,
+  };
+  const ORDERS = ['shelf', 'newest', 'oldest', 'title', 'sources', 'opened'];
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    set(key, v) { try { localStorage.setItem(key, v); } catch (e) { /* private mode: not kept */ } },
   };
 
   // ---------------------------------------------------------------- copy
@@ -271,6 +283,7 @@
     state.stageData = s;
     screen({ ...s, stage });
     if (Date.now() < state.holdUntil) return; // a fetch, or her walk to the shelves, is playing
+    if (stage === 'idle' && state.unseen.length && state.autoShelve) { shelveAll(); return; }
     const waiting = stage === 'idle' ? state.unseen[0] || null : null;
     const shown = waiting ? 'presenting' : stage;
     const key = waiting ? `presenting|${waiting.id}` : stage === 'fetching' || stage === 'idle' ? `${stage}|` : `${stage}|${s.topic || ''}`;
@@ -290,7 +303,17 @@
   let presentTimer = null;
   function showPresent(book) {
     state.presentId = book ? book.id : null;
-    $('present').hidden = !book;
+    const row = $('present-row');
+    const always = $('present-always').closest('label');
+    // The box shows while a book waits, and while skipping is the rule (so it can be turned off again).
+    always.hidden = !book && !state.autoShelve;
+    if (!book && !row.hidden && row.contains(document.activeElement)) (always.hidden ? $('desk-q') : $('present-always')).focus();
+    row.hidden = !book;
+    if (book) {
+      const n = state.unseen.length;
+      const p = copy.presenting || {};
+      $('present-skip').textContent = n > 1 ? fmt(p.skipMany || p.skip || 'Skip', { n }) : (p.skipOne || p.skip || 'Skip');
+    }
     // While she waits, the shelves are read again now and then: the book may have been opened on another screen.
     if (book && !presentTimer) presentTimer = setTimeout(() => { presentTimer = null; loadLibrary(); }, 15000);
   }
@@ -316,6 +339,36 @@
     postJSON('/api/seen', { book: id })
       .then((r) => { if (Array.isArray(r.unseen)) state.unseen = r.unseen.filter((u) => u && u.id && !state.seenNow.has(u.id)); })
       .catch(() => { /* not kept this time: the book waits again on the next visit */ });
+  }
+
+  // Skip: every waiting book goes up at once, unopened. She walks to the shelves once (the shelving scene), and as she
+  // reaches them that many books fly down to the Library together. Each book is posted as seen, one after another.
+  function shelveAll() {
+    const books = state.unseen.slice();
+    if (!books.length) return;
+    books.forEach((b) => state.seenNow.add(b.id));
+    state.unseen = [];
+    showPresent(null);
+    const hold = still() ? 1500 : SHELVE_MS;
+    state.holdUntil = Date.now() + hold;
+    state.burst = Math.min(books.length, 8);
+    const was = state.stage;
+    state.stage = 'shelving';
+    showScene('shelving');
+    onStageChange('shelving', was);
+    state.stageKey = 'shelving|all';
+    const p = copy.presenting || {};
+    const n = books.length;
+    $('stage-name').textContent = (copy.stageNames && copy.stageNames.shelving) || '';
+    const line = pick(n > 1 ? p.shelved : p.shelvedOne, { n }, 'shelved') || pick(copy.stages && copy.stages.shelving, {}, 'stage-shelving');
+    say($('caption'), line, { n });
+    setTimeout(pollStageNow, hold + 50);
+    (async () => {
+      for (const b of books) {
+        try { await postJSON('/api/seen', { book: b.id }); } catch (e) { /* not kept this time: it waits again on the next visit */ }
+      }
+      loadLibrary();
+    })();
   }
 
   let stageTimer = null;
@@ -370,7 +423,12 @@
     clearTimeout(flightTimer);
     const wait = still() || document.hidden ? null : untilPlaced();
     if (wait == null) { flightTimer = setTimeout(nextFlight, 1000); return; } // still, hidden or not drawn yet: look again soon
-    flightTimer = setTimeout(() => { flyBook(); flightTimer = setTimeout(nextFlight, 500); }, wait);
+    flightTimer = setTimeout(() => {
+      const k = Math.max(1, state.burst);
+      state.burst = 0;
+      for (let i = 0; i < k; i++) setTimeout(flyBook, i * 140); // Skip: all the waiting books go up together
+      flightTimer = setTimeout(nextFlight, 500);
+    }, wait);
   }
 
   function flightTarget() {
@@ -727,9 +785,10 @@
       return;
     }
     const maxLines = Math.max(...books.map((b) => Number(b.lines) || 1));
-    sections.forEach((sec, i) => {
+    const bays = state.order === 'oldest' && (state.arrange === 'month' || state.arrange === 'run') ? sections.slice().reverse() : sections;
+    bays.forEach((sec, i) => {
       const color = SPINES[i % SPINES.length];
-      const mine = books.filter((b) => b.section === sec.id);
+      const mine = ordered(books.filter((b) => b.section === sec.id));
       if (!mine.length) return;
       const id = `shelf-${i}`;
 
@@ -782,6 +841,29 @@
       shelves.append(shelf);
     });
     $('indicators-nav').hidden = false;
+  }
+
+  // Order on each shelf. "As shelved" keeps the server's order; the others sort in the page, from what each book carries.
+  const byDate = (a, b) => String(a.date || '').localeCompare(String(b.date || ''));
+  const byTitle = (a, b) => String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base', numeric: true });
+  function ordered(list) {
+    const o = state.order;
+    if (o === 'shelf') return list;
+    const out = list.slice();
+    if (o === 'newest') out.sort((a, b) => byDate(b, a) || byTitle(a, b));
+    else if (o === 'oldest') out.sort((a, b) => byDate(a, b) || byTitle(a, b));
+    else if (o === 'title') out.sort(byTitle);
+    else if (o === 'sources') out.sort((a, b) => (Number(b.sources) || 0) - (Number(a.sources) || 0) || byTitle(a, b));
+    else if (o === 'opened') out.sort((a, b) => (state.opened[b.id] || 0) - (state.opened[a.id] || 0) || byDate(b, a) || byTitle(a, b));
+    return out;
+  }
+
+  // Recently opened: when each book was last opened in this browser (the last 500).
+  function noteOpened(id) {
+    state.opened[id] = Date.now();
+    state.opened = Object.fromEntries(Object.entries(state.opened).sort((a, b) => b[1] - a[1]).slice(0, 500));
+    store.set('louise.opened', JSON.stringify(state.opened));
+    if (state.order === 'opened' && state.library) renderLibrary();
   }
 
   let searchTimer = null;
@@ -852,6 +934,7 @@
     catch (e) { $('search-status').textContent = ui('bookError'); return; }
     if (!book || !Array.isArray(book.pages) || !book.pages.length) { $('search-status').textContent = ui('bookError'); return; }
     state.book = book;
+    noteOpened(book.id);
     const shelved = state.library && state.library.books.find((b) => b.id === book.id);
     const runTitle = book.kind !== 'run-summary' && state.runTitles.get(book.run);
     $('book-kind').textContent = ui(`kind_${book.kind}`) || '';
@@ -1083,6 +1166,25 @@
       if (back) back.focus();
     });
     $('present').addEventListener('click', () => { if (state.presentId) openBook(state.presentId, $('present')); });
+    $('present-skip').addEventListener('click', shelveAll);
+    state.autoShelve = store.get('louise.autoShelve') === '1';
+    $('present-always').checked = state.autoShelve;
+    $('present-always').addEventListener('change', () => {
+      state.autoShelve = $('present-always').checked;
+      store.set('louise.autoShelve', state.autoShelve ? '1' : '0');
+      if (state.autoShelve && state.stage === 'presenting') shelveAll();
+      else showPresent(state.stage === 'presenting' ? state.unseen.find((u) => u.id === state.presentId) || null : null);
+    });
+    try { state.opened = JSON.parse(store.get('louise.opened') || '{}') || {}; } catch (e) { state.opened = {}; }
+    if (typeof state.opened !== 'object' || Array.isArray(state.opened)) state.opened = {};
+    const savedOrder = store.get('louise.order');
+    state.order = ORDERS.includes(savedOrder) ? savedOrder : 'shelf';
+    $('order').value = state.order;
+    $('order').addEventListener('change', () => {
+      state.order = ORDERS.includes($('order').value) ? $('order').value : 'shelf';
+      store.set('louise.order', state.order);
+      if (state.library) renderLibrary();
+    });
   }
 
   async function start() {
