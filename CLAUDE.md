@@ -255,7 +255,10 @@ flags someone else's.
 Steps, in order. Name clients by code only (C01 to C10) in everything she writes; never client names, amounts or memos.
 
 1. **Before.** `node ~/.claude/skills/recall/scripts/recall.js --check`. Keep its three lines (lint, then the two
-   recall scores) as the "before".
+   recall scores) as the "before". Then keep each question's own line: for each of `eval/questions.json` and
+   `eval/recall-questions.json`, `git -C <fleet-ops> show origin/main:brains/wilsonworks/<file>` into
+   `D:\tmp\scratch\tend-<YYYY-MM-DD>-<name>.json`, and run `recall.js --eval <that copy>` (one PASS or MISS line per
+   question, with its rank). Keep those lines too.
 2. **Open flags.** Read `state/flags.jsonl`. A flag is open when no later line has `resolved` equal to its `at` and the
    same `text`.
 3. **Safe traces only.** Read the run handoffs (`HANDOFF.md`, `GATE-HANDOFF.md` in the run folders) and the session
@@ -277,10 +280,19 @@ Steps, in order. Name clients by code only (C01 to C10) in everything she writes
    and how many, in her status line.
 7. **Close each flag.** Append one line per flag to `state/flags.jsonl`:
    `{"resolved": "<the flag's at>", "text": "<the flag's text>", "at": "<now, YYYY-MM-DD HH:MM CDT>", "how": "fixed in <file> | passed to <keeper> | not a defect: <why>"}`.
-8. **After.** Run `--check` again. A tend that leaves more lint errors, or a lower recall score, than the "before" has
-   failed: say "TEND FAILED" first and mark its branch not for merge.
+8. **After.** Run the same commands again. When step 5 made a brain branch, add `--brain-dir <worktree>/brains/wilsonworks`
+   to `--check` and to both `--eval` runs (recall reads the brain from origin/main otherwise and would not see your
+   change). The tend has failed if lint errors rose, if a score went down, or if any question that was PASS before is
+   MISS after, even when the totals went up: a fix that breaks an answer that worked is not paid for by two that it
+   mends (the idea of the GUARD paper, arXiv 2611.23476, Google Cloud; idea only). On a failure, say "TEND FAILED"
+   first, mark the branch not for merge, and name the question that broke. Edits made in place in step 4 (a memory
+   note, one of John's notes, her own config) are live at once, so holding the branch does not hold them back: undo
+   each one in its home (strike the new line and restore the old, with the date), then list it under "Refused fixes".
+   A question that still passes but falls in rank (say from 1 to 4) is not a failure; name it in the tend book.
 9. **The tend book.** Write `<library>/runs/tend-<YYYY-MM-DD>.md`: the before and after lines, each flag fixed (where,
-   with its source), each flag passed on (to whom), and the branch for John. Then one status line through
+   with its source), each flag passed on (to whom), any question that went from PASS to MISS or fell in rank, and the
+   branch for John. Under "Refused fixes", list each fix you undid or that failed step 8, with why; the next tend reads
+   the last book's list first and does not try the same fix again unchanged. Then one status line through
    `node <fleet-office>/bin/office-say.js --status "..."`: flags fixed, flags passed on and to whom, the branch.
 
 **Before a weekly schedule is added (not yet).** The tend runs on ask, from a chat ("Louise, tend the knowledge").
